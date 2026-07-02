@@ -174,7 +174,7 @@ const Tramites = () => {
                     <strong style={{ fontSize: '0.95rem', color: 'var(--text-main)' }}>{t.nombre}</strong>
                   </td>
                   <td style={{ color: 'var(--text-muted)', fontSize: '0.85rem', maxWidth: '300px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={t.descripcion}>
-                    {t.descripcion || <span style={{ fontStyle: 'italic', color: '#cbd5e1' }}>Sin descripción</span>}
+                    {t.descripcion || <span style={{ fontStyle: 'italic', color: 'rgba(255,255,255,0.2)' }}>Sin descripción</span>}
                   </td>
                   <td>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: 'var(--text-main)', fontSize: '0.9rem' }}>
@@ -196,10 +196,10 @@ const Tramites = () => {
                   </td>
                   <td>
                     <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
-                      <button className="btn btn-outline" style={{ padding: '0.4rem 0.6rem', color: 'var(--primary)', borderColor: '#dbeafe' }} onClick={() => openEditModal(t)}>
+                      <button className="btn btn-outline" style={{ padding: '0.4rem 0.6rem', color: '#a5b4fc', borderColor: 'rgba(99,102,241,0.3)' }} onClick={() => openEditModal(t)}>
                         <Edit size={16} />
                       </button>
-                      <button className="btn btn-outline" style={{ padding: '0.4rem 0.6rem', color: 'var(--danger)', borderColor: '#fee2e2' }} onClick={() => handleDelete(t._id)}>
+                      <button className="btn btn-outline" style={{ padding: '0.4rem 0.6rem', color: '#f87171', borderColor: 'rgba(248,113,113,0.3)' }} onClick={() => handleDelete(t._id)}>
                         <Trash2 size={16} />
                       </button>
                     </div>
@@ -209,7 +209,7 @@ const Tramites = () => {
             ) : (
               <tr>
                 <td colSpan="6" style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>
-                  <FileText size={40} style={{ color: '#cbd5e1', marginBottom: '0.75rem', display: 'block', margin: '0 auto' }} />
+                  <FileText size={40} style={{ color: 'rgba(255,255,255,0.15)', marginBottom: '0.75rem', display: 'block', margin: '0 auto' }} />
                   <span>No hay trámites registrados en el sistema.</span>
                 </td>
               </tr>
@@ -265,9 +265,9 @@ const Tramites = () => {
                   step="1"
                   value={formData.tiempoEstimado} 
                   onChange={(e) => setFormData({...formData, tiempoEstimado: parseInt(e.target.value)})}
-                  style={{ marginTop: '0.5rem', height: '6px', background: '#e2e8f0', borderRadius: '4px', outline: 'none', padding: 0 }}
+                  style={{ marginTop: '0.5rem', height: '6px', background: 'rgba(124,58,237,0.25)', borderRadius: '4px', outline: 'none', padding: 0 }}
                 />
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: 'rgba(255,255,255,0.35)', marginTop: '0.25rem' }}>
                   <span>2 min</span>
                   <span>15 min</span>
                   <span>30 min</span>
@@ -277,7 +277,7 @@ const Tramites = () => {
               </div>
 
               {editMode && (
-                <div className="checkbox-group" style={{ marginBottom: '1.5rem', background: '#f8fafc', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border)' }}>
+                <div className="checkbox-group" style={{ marginBottom: '1.5rem', background: 'rgba(255,255,255,0.04)', padding: '0.75rem', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.08)' }}>
                   <input 
                     type="checkbox" 
                     id="estado_chk"

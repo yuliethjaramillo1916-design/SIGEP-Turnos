@@ -1,6 +1,7 @@
 const Turno = require('../models/Turno');
 const Tramite = require('../models/Tramite');
 const Usuario = require('../models/Usuario');
+const Configuracion = require('../models/Configuracion');
 
 // Helper para obtener fecha actual local YYYY-MM-DD
 const getLocalDateString = () => {
@@ -16,8 +17,8 @@ exports.getDashboardStats = async (req, res) => {
     try {
         const fechaHoy = getLocalDateString();
 
-        // 1. Obtener todos los turnos de hoy
-        const turnosHoy = await Turno.find({ fecha: fechaHoy }).populate('tramite');
+        // 1. Obtener todos los turnos de hoy de la entidad
+        const turnosHoy = await Turno.find({ fecha: fechaHoy, entidadId: req.user.entidadId }).populate('tramite');
 
         const totalTurnos = turnosHoy.length;
         const enEspera = turnosHoy.filter(t => t.estado === 'ESPERA').length;
@@ -55,6 +56,10 @@ exports.getDashboardStats = async (req, res) => {
             }
         });
 
+        // 5. Límite configurado por el admin para esta entidad
+        const config = await Configuracion.findOne({ entidadId: req.user.entidadId });
+        const limiteTurnos = config?.limite_turnos_dia || 0;
+
         res.status(200).json({
             summary: {
                 totalTurnos,
@@ -63,7 +68,8 @@ exports.getDashboardStats = async (req, res) => {
                 finalizados,
                 cancelados,
                 pausados,
-                tiempoEsperaPromedio // en segundos
+                tiempoEsperaPromedio,
+                limiteTurnos,
             },
             tramitesDistribucion,
             horasDistribucion
@@ -81,7 +87,7 @@ exports.getHistoricoReport = async (req, res) => {
     const { fechaInicio, fechaFin, tramiteId } = req.query;
 
     try {
-        let filter = {};
+        let filter = { entidadId: req.user.entidadId };
 
         if (fechaInicio && fechaFin) {
             filter.fecha = { $gte: fechaInicio, $lte: fechaFin };

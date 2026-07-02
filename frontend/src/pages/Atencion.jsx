@@ -8,9 +8,10 @@ const Atencion = () => {
   const { user } = useAuth();
   
   // Estados de Configuración
-  const [ventanilla, setVentanilla] = useState(localStorage.getItem('ventanilla') || '');
-  const [isVentanillaSet, setIsVentanillaSet] = useState(!!localStorage.getItem('ventanilla'));
+  const [ventanilla, setVentanilla] = useState('');
+  const [isVentanillaSet, setIsVentanillaSet] = useState(false);
   const [ventanillasDisponibles, setVentanillasDisponibles] = useState([]);
+  const [loadingVentanilla, setLoadingVentanilla] = useState(true);
   
   // Estados de Atención
   const [currentTurno, setCurrentTurno] = useState(null);
@@ -26,11 +27,13 @@ const Atencion = () => {
   const socketRef = useRef(null);
   const pollingIntervalRef = useRef(null);
 
-  // Cargar ventanillas y trámites iniciales
+  // Cargar ventanillas y trámites iniciales — esperar a que user esté disponible
   useEffect(() => {
-    fetchVentanillas();
+    if (user?._id) {
+      fetchVentanillas();
+    }
     fetchTramites();
-  }, []);
+  }, [user?._id]);
 
   // Efecto para inicializar la conexión en tiempo real con Socket.io
   useEffect(() => {
@@ -51,11 +54,60 @@ const Atencion = () => {
   }, [isVentanillaSet, ventanilla]);
 
   const fetchVentanillas = async () => {
+    setLoadingVentanilla(true);
     try {
       const res = await api.get('/ventanillas');
-      setVentanillasDisponibles(res.data || []);
+      const lista = res.data || [];
+      setVentanillasDisponibles(lista);
+
+      console.log('=== DEBUG VENTANILLA ===');
+      console.log('user._id:', user?._id);
+      console.log('user.ventanilla:', user?.ventanilla);
+      console.log('ventanillas en BD:', lista.map(v => ({
+        _id: v._id,
+        nombre: v.nombre,
+        operador_id: v.operador?._id || v.operador
+      })));
+
+      // Estrategia 1: el objeto user tiene el campo ventanilla (ObjectId) desde /auth/me
+      if (user?.ventanilla) {
+        const ventanillaAsignada = lista.find(
+          v => String(v._id) === String(user.ventanilla?._id || user.ventanilla)
+        );
+        console.log('Estrategia 1 - ventanillaAsignada:', ventanillaAsignada);
+        if (ventanillaAsignada) {
+          const nombreVentanilla = ventanillaAsignada.nombre || `Ventanilla ${ventanillaAsignada.numero}`;
+          setVentanilla(nombreVentanilla);
+          setIsVentanillaSet(true);
+          setLoadingVentanilla(false);
+          return;
+        }
+      }
+
+      // Estrategia 2: buscar por operador asignado en la ventanilla
+      const ventanillaAsignada = lista.find(
+        v => v.operador && String(v.operador._id || v.operador) === String(user?._id)
+      );
+      console.log('Estrategia 2 - ventanillaAsignada:', ventanillaAsignada);
+      if (ventanillaAsignada) {
+        const nombreVentanilla = ventanillaAsignada.nombre || `Ventanilla ${ventanillaAsignada.numero}`;
+        setVentanilla(nombreVentanilla);
+        setIsVentanillaSet(true);
+        setLoadingVentanilla(false);
+        return;
+      }
+
+      // Estrategia 3: localStorage por usuario (fallback manual)
+      const guardada = localStorage.getItem(`ventanilla_${user?._id}`);
+      console.log('Estrategia 3 - localStorage:', guardada);
+      if (guardada) {
+        setVentanilla(guardada);
+        setIsVentanillaSet(true);
+      }
     } catch (err) {
       console.error('Error fetching ventanillas:', err);
+    } finally {
+      setLoadingVentanilla(false);
     }
   };
 
@@ -124,9 +176,17 @@ const Atencion = () => {
       const response = await api.get('/turnos');
       const allTurnos = response.data;
       
-      // Fila de espera de hoy
-      const hoyStr = new Date().toISOString().split('T')[0];
-      const enEsperaHoy = allTurnos.filter(t => t.estado === 'ESPERA');
+      // Fila de espera de hoy (solo turnos de hoy)
+      const hoyISO = new Date().toISOString().split('T')[0];
+      const normFecha = (t) => {
+        if (t.createdAt) {
+          const d = new Date(t.createdAt);
+          return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+        }
+        if (t.fecha && /^\d{4}-\d{2}-\d{2}/.test(t.fecha)) return t.fecha.slice(0,10);
+        return '';
+      };
+      const enEsperaHoy = allTurnos.filter(t => t.estado === 'ESPERA' && normFecha(t) === hoyISO);
       setEspera(enEsperaHoy);
 
       // Turno activo de este operador en este momento
@@ -144,12 +204,12 @@ const Atencion = () => {
   const guardarVentanilla = (e) => {
     e.preventDefault();
     if (ventanilla.trim() === '') return;
-    localStorage.setItem('ventanilla', ventanilla);
+    localStorage.setItem(`ventanilla_${user?._id}`, ventanilla);
     setIsVentanillaSet(true);
   };
 
   const cambiarVentanillaConfig = () => {
-    localStorage.removeItem('ventanilla');
+    localStorage.removeItem(`ventanilla_${user?._id}`);
     setIsVentanillaSet(false);
     setVentanilla('');
     setCurrentTurno(null);
@@ -231,6 +291,23 @@ const Atencion = () => {
     }
   };
 
+  // Mientras carga la ventanilla asignada, mostrar spinner
+  if (loadingVentanilla) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '70vh' }}>
+        <div style={{ textAlign: 'center', color: 'var(--text-muted)' }}>
+          <div style={{
+            width: '48px', height: '48px', border: '4px solid rgba(255,255,255,0.1)',
+            borderTopColor: 'var(--primary)', borderRadius: '50%',
+            animation: 'spin 0.8s linear infinite', margin: '0 auto 1rem'
+          }} />
+          <p style={{ fontWeight: 600 }}>Cargando tu módulo de atención...</p>
+          <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+        </div>
+      </div>
+    );
+  }
+
   // Mostrar selector de ventanilla si no está configurada
   if (!isVentanillaSet) {
     return (
@@ -243,7 +320,7 @@ const Atencion = () => {
               justifyContent: 'center',
               width: '56px',
               height: '56px',
-              background: '#eff6ff',
+              background: 'rgba(124,58,237,0.15)',
               color: 'var(--primary)',
               borderRadius: '16px',
               marginBottom: '1rem'
@@ -252,13 +329,13 @@ const Atencion = () => {
             </div>
             <h2 style={{ fontSize: '1.5rem', fontWeight: 800 }}>Configura tu Módulo</h2>
             <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginTop: '0.5rem' }}>
-              Selecciona o introduce la ventanilla física desde la cual atenderás el día de hoy.
+              No tienes una ventanilla asignada en el sistema. Selecciona una manualmente o pide al administrador que te asigne una.
             </p>
           </div>
 
           <form onSubmit={guardarVentanilla}>
             <div className="form-group" style={{ marginBottom: '1.5rem' }}>
-              <label style={{ fontWeight: 600, color: '#475569' }}>Número o Nombre de Ventanilla</label>
+              <label style={{ fontWeight: 600, color: 'rgba(255,255,255,0.6)' }}>Número o Nombre de Ventanilla</label>
               
               {ventanillasDisponibles.length > 0 ? (
                 <select 
@@ -308,15 +385,16 @@ const Atencion = () => {
               Módulo de Atención
             </h1>
             <span style={{ 
-              background: socketStatus === 'connected' ? '#dcfce7' : '#fee2e2', 
-              color: socketStatus === 'connected' ? '#166534' : '#991b1b',
+              background: socketStatus === 'connected' ? 'rgba(34,197,94,0.15)' : 'rgba(239,68,68,0.15)', 
+              color: socketStatus === 'connected' ? '#4ade80' : '#f87171',
               padding: '0.2rem 0.6rem',
               borderRadius: '20px',
               fontSize: '0.75rem',
               fontWeight: 700,
               display: 'flex',
               alignItems: 'center',
-              gap: '0.25rem'
+              gap: '0.25rem',
+              border: `1px solid ${socketStatus === 'connected' ? 'rgba(34,197,94,0.3)' : 'rgba(239,68,68,0.3)'}`,
             }}>
               <span style={{ 
                 width: '6px', 
@@ -333,9 +411,11 @@ const Atencion = () => {
           </p>
         </div>
 
-        <button onClick={cambiarVentanillaConfig} className="btn btn-outline" style={{ fontSize: '0.85rem', fontWeight: 600 }}>
-          <RefreshCw size={16} /> Cambiar Ventanilla
-        </button>
+        {user?.rol === 'ADMINISTRADOR' && (
+          <button onClick={cambiarVentanillaConfig} className="btn btn-outline" style={{ fontSize: '0.85rem', fontWeight: 600 }}>
+            <RefreshCw size={16} /> Cambiar Ventanilla
+          </button>
+        )}
       </div>
 
       {/* Grid Principal: Turno Activo vs Cola */}
@@ -382,7 +462,7 @@ const Atencion = () => {
                 {currentTurno.codigoTurno}
               </h2>
 
-              <p style={{ fontSize: '1.5rem', fontWeight: 700, color: '#334155', marginBottom: '0.25rem' }}>
+              <p style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--text-main)', marginBottom: '0.25rem' }}>
                 {currentTurno.tramite?.nombre}
               </p>
               
@@ -397,21 +477,21 @@ const Atencion = () => {
                 </button>
 
                 {currentTurno.estado === 'ATENDIENDO' ? (
-                  <button className="btn btn-outline" onClick={pausarAtencion} style={{ padding: '0.75rem 1.25rem', fontSize: '1rem', borderRadius: '12px', color: '#d97706', borderColor: '#fef3c7', background: '#fffbeb' }}>
+                  <button className="btn btn-outline" onClick={pausarAtencion} style={{ padding: '0.75rem 1.25rem', fontSize: '1rem', borderRadius: '12px', color: '#fbbf24', borderColor: 'rgba(251,191,36,0.3)', background: 'rgba(251,191,36,0.08)' }}>
                     <Pause size={20} /> Pausar
                   </button>
                 ) : (
-                  <button className="btn btn-outline" onClick={reanudarAtencion} style={{ padding: '0.75rem 1.25rem', fontSize: '1rem', borderRadius: '12px', color: '#16a34a', borderColor: '#dcfce7', background: '#f0fdf4' }}>
+                  <button className="btn btn-outline" onClick={reanudarAtencion} style={{ padding: '0.75rem 1.25rem', fontSize: '1rem', borderRadius: '12px', color: '#34d399', borderColor: 'rgba(52,211,153,0.3)', background: 'rgba(52,211,153,0.08)' }}>
                     <Play size={20} /> Reanudar
                   </button>
                 )}
 
-                <button className="btn btn-outline" onClick={() => setShowTransferModal(true)} style={{ padding: '0.75rem 1.25rem', fontSize: '1rem', borderRadius: '12px', color: 'var(--primary)', borderColor: '#dbeafe', background: '#f0f9ff' }}>
+                <button className="btn btn-outline" onClick={() => setShowTransferModal(true)} style={{ padding: '0.75rem 1.25rem', fontSize: '1rem', borderRadius: '12px', color: '#a78bfa', borderColor: 'rgba(167,139,250,0.3)', background: 'rgba(124,58,237,0.08)' }}>
                   <RefreshCw size={20} /> Reasignar Trámite
                 </button>
 
                 {user?.rol === 'ADMINISTRADOR' && (
-                  <button className="btn btn-outline" onClick={cancelarAtencion} style={{ padding: '0.75rem 1.25rem', fontSize: '1rem', borderRadius: '12px', color: '#ef4444', borderColor: '#fee2e2', background: '#fef2f2' }}>
+                  <button className="btn btn-outline" onClick={cancelarAtencion} style={{ padding: '0.75rem 1.25rem', fontSize: '1rem', borderRadius: '12px', color: '#f87171', borderColor: 'rgba(248,113,113,0.3)', background: 'rgba(248,113,113,0.08)' }}>
                     <XCircle size={20} /> Cancelar Turno
                   </button>
                 )}
@@ -422,8 +502,8 @@ const Atencion = () => {
               <div style={{
                 width: '80px',
                 height: '80px',
-                background: '#f8fafc',
-                border: '2px dashed var(--border)',
+                background: 'rgba(255,255,255,0.05)',
+                border: '2px dashed rgba(255,255,255,0.12)',
                 borderRadius: '50%',
                 display: 'flex',
                 alignItems: 'center',
@@ -476,19 +556,19 @@ const Atencion = () => {
                     display: 'flex', 
                     flexDirection: 'column',
                     padding: '0.85rem 1rem', 
-                    background: t.prioridad === 'PRIORITARIO' ? '#fffbeb' : '#f8fafc', 
+                    background: t.prioridad === 'PRIORITARIO' ? 'rgba(251,191,36,0.08)' : 'rgba(255,255,255,0.04)', 
                     borderRadius: '10px', 
                     border: '1px solid',
-                    borderColor: t.prioridad === 'PRIORITARIO' ? '#fef3c7' : 'var(--border)',
+                    borderColor: t.prioridad === 'PRIORITARIO' ? 'rgba(251,191,36,0.25)' : 'rgba(255,255,255,0.08)',
                     position: 'relative'
                   }}
                 >
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <strong style={{ fontSize: '1.1rem', color: '#1e293b' }}>{t.codigoTurno}</strong>
+                    <strong style={{ fontSize: '1.1rem', color: 'var(--text-main)' }}>{t.codigoTurno}</strong>
                     <span style={{ 
                       fontSize: '0.75rem', 
                       fontWeight: 700, 
-                      color: t.prioridad === 'PRIORITARIO' ? '#854d0e' : 'var(--secondary)' 
+                      color: t.prioridad === 'PRIORITARIO' ? '#fbbf24' : 'rgba(255,255,255,0.4)' 
                     }}>
                       {t.prioridad === 'PRIORITARIO' ? `⭐ PRIORITARIO` : 'NORMAL'}
                     </span>

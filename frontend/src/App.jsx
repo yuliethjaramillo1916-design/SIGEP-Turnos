@@ -12,6 +12,8 @@ import Reportes from './pages/Reportes';
 import Configuracion from './pages/Configuracion';
 import PantallaPublica from './pages/PantallaPublica';
 import Ventanillas from './pages/Ventanillas';
+import CrearTicket from './pages/CrearTicket';
+import HistorialAtencion from './pages/HistorialAtencion';
 import './styles/global.css';
 
 // Componente para manejar la redirección de la raíz '/' según el rol del usuario logueado
@@ -60,11 +62,25 @@ function App() {
                       <Turnos />
                     </PrivateRoute>
                   } />
+
+                  {/* Crear Ticket — acceso directo para Vigilante */}
+                  <Route path="/crear-ticket" element={
+                    <PrivateRoute allowedRoles={['VIGILANTE']}>
+                      <CrearTicket />
+                    </PrivateRoute>
+                  } />
                   
                   {/* Atención de Turnos (Operador, Admin) */}
                   <Route path="/atencion" element={
                     <PrivateRoute allowedRoles={['ADMINISTRADOR', 'OPERADOR']}>
                       <Atencion />
+                    </PrivateRoute>
+                  } />
+
+                  {/* Historial de turnos atendidos */}
+                  <Route path="/historial-atencion" element={
+                    <PrivateRoute allowedRoles={['ADMINISTRADOR', 'OPERADOR']}>
+                      <HistorialAtencion />
                     </PrivateRoute>
                   } />
                   

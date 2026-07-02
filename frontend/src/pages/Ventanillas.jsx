@@ -221,7 +221,7 @@ const Ventanillas = () => {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '1.5rem' }}>
         {ventanillas.length === 0 && (
           <div className="card" style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '4rem', color: 'var(--text-muted)', border: '1px solid var(--border)' }}>
-            <Monitor size={48} style={{ color: '#cbd5e1', marginBottom: '1rem' }} />
+            <Monitor size={48} style={{ color: 'rgba(255,255,255,0.15)', marginBottom: '1rem' }} />
             <h3 style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-main)', marginBottom: '0.5rem' }}>No hay ventanillas registradas</h3>
             <p style={{ fontSize: '0.9rem' }}>Crea tu primera ventanilla para empezar a asignarle operadores y turnos.</p>
           </div>
@@ -243,15 +243,8 @@ const Ventanillas = () => {
         
         {filteredVentanillas.map((v) => (
           <div key={v._id} className="card" style={{
-            borderLeft: `4px solid ${v.estado === 'activa' ? 'var(--success)' : '#cbd5e1'}`,
-            position: 'relative',
-            transition: 'box-shadow 0.2s',
-            boxShadow: 'var(--shadow)',
-            border: '1px solid var(--border)',
-            borderLeftWidth: '4px',
-            background: 'var(--bg-card)',
-            padding: '1.5rem',
-            borderRadius: '12px'
+            borderLeft: `4px solid ${v.estado === 'activa' ? '#34d399' : 'rgba(255,255,255,0.12)'}`,
+            position: 'relative', transition: 'box-shadow 0.2s',
           }}>
             {/* Estado badge */}
             <div style={{ position: 'absolute', top: '1.25rem', right: '1.25rem' }}>
@@ -262,31 +255,24 @@ const Ventanillas = () => {
 
             {/* Número y Nombre */}
             <div style={{
-              background: v.estado === 'activa' ? 'rgba(34,197,94,0.08)' : '#f8fafc',
-              borderRadius: '10px',
-              padding: '1rem',
-              marginBottom: '1rem',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.75rem',
+              background: v.estado === 'activa' ? 'rgba(52,211,153,0.08)' : 'rgba(255,255,255,0.04)',
+              borderRadius: '10px', padding: '1rem', marginBottom: '1rem',
+              display: 'flex', alignItems: 'center', gap: '0.75rem',
+              border: `1px solid ${v.estado === 'activa' ? 'rgba(52,211,153,0.15)' : 'rgba(255,255,255,0.06)'}`,
             }}>
               <div style={{
-                background: v.estado === 'activa' ? 'var(--success)' : '#94a3b8',
-                color: 'white',
-                fontWeight: 800,
-                fontSize: '1.25rem',
-                width: '48px',
-                height: '48px',
-                borderRadius: '10px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
+                background: v.estado === 'activa' ? 'linear-gradient(135deg, #059669, #10b981)' : 'rgba(255,255,255,0.12)',
+                color: 'white', fontWeight: 800, fontSize: '1.25rem',
+                width: '48px', height: '48px', borderRadius: '10px',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                flexShrink: 0,
+                boxShadow: v.estado === 'activa' ? '0 4px 12px rgba(5,150,105,0.35)' : 'none',
               }}>
                 {v.numero}
               </div>
               <div>
-                <div style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--text-main)' }}>Ventanilla {v.numero}</div>
-                <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                <div style={{ fontWeight: 700, fontSize: '1rem', color: 'white' }}>Ventanilla {v.numero}</div>
+                <div style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.45)' }}>
                   {v.nombre || 'Sin descripción'}
                 </div>
               </div>
@@ -317,14 +303,14 @@ const Ventanillas = () => {
               </button>
               <button
                 className="btn btn-outline"
-                style={{ padding: '0.45rem 0.6rem', color: 'var(--primary)', borderColor: '#dbeafe' }}
+                style={{ padding: '0.45rem 0.6rem', color: '#a5b4fc', borderColor: 'rgba(99,102,241,0.3)' }}
                 onClick={() => openEditModal(v)}
               >
                 <Edit size={16} />
               </button>
               <button
                 className="btn btn-outline"
-                style={{ padding: '0.45rem 0.6rem', color: 'var(--danger)', borderColor: '#fee2e2' }}
+                style={{ padding: '0.45rem 0.6rem', color: '#f87171', borderColor: 'rgba(248,113,113,0.3)' }}
                 onClick={() => handleDelete(v._id)}
               >
                 <Trash2 size={16} />
@@ -336,19 +322,19 @@ const Ventanillas = () => {
 
       {/* Modal Ventanilla */}
       {showModal && (
-        <div className="modal-overlay" style={{ background: 'rgba(15, 23, 42, 0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'fixed', inset: 0, zIndex: 1000 }}>
-          <div className="modal-content" style={{ maxWidth: '440px', borderRadius: '16px', background: 'white', padding: '2rem', width: '100%', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)' }}>
-            <div className="modal-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-              <h2 style={{ fontSize: '1.25rem', fontWeight: 800 }}>
+        <div className="modal-overlay" style={{ background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'fixed', inset: 0, zIndex: 1000, backdropFilter: 'blur(8px)' }}>
+          <div style={{ maxWidth: '440px', borderRadius: '20px', background: '#1a1830', padding: '2rem', width: '100%', boxShadow: '0 40px 80px rgba(0,0,0,0.6)', border: '1px solid rgba(124,58,237,0.2)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.75rem', paddingBottom: '1rem', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+              <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-main)' }}>
                 {editMode ? 'Editar Ventanilla' : 'Nueva Ventanilla'}
               </h2>
-              <button onClick={() => setShowModal(false)} style={{ color: 'var(--text-muted)', fontSize: '1.5rem', fontWeight: 'bold', background: 'none', border: 'none', cursor: 'pointer' }}>&times;</button>
+              <button onClick={() => setShowModal(false)} style={{ color: 'rgba(255,255,255,0.4)', fontSize: '1.5rem', fontWeight: 'bold', background: 'none', border: 'none', cursor: 'pointer', lineHeight: 1 }}>&times;</button>
             </div>
             
             <form onSubmit={handleSubmit}>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '1rem', marginBottom: '1.25rem' }}>
                 <div className="form-group">
-                  <label style={{ fontWeight: 600, fontSize: '0.85rem', color: '#475569' }}>
+                  <label style={{ fontWeight: 600, fontSize: '0.85rem', color: 'rgba(255,255,255,0.6)' }}>
                     <Hash size={14} style={{ display: 'inline', marginRight: '4px', verticalAlign: 'middle' }} />
                     Número
                   </label>
@@ -358,38 +344,38 @@ const Ventanillas = () => {
                     placeholder="Ej: 1"
                     value={formData.numero}
                     onChange={(e) => setFormData({ ...formData, numero: e.target.value })}
-                    style={{ marginTop: '0.375rem', borderRadius: '8px', padding: '0.5rem', width: '100%', border: '1px solid #cbd5e1' }}
+                    style={{ marginTop: '0.375rem', borderRadius: '8px' }}
                   />
                 </div>
                 <div className="form-group">
-                  <label style={{ fontWeight: 600, fontSize: '0.85rem', color: '#475569' }}>Nombre / Descripción</label>
+                  <label style={{ fontWeight: 600, fontSize: '0.85rem', color: 'rgba(255,255,255,0.6)' }}>Nombre / Descripción</label>
                   <input
                     type="text"
                     placeholder="Ej: Caja Principal, Atención Rápida"
                     value={formData.nombre}
                     onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
-                    style={{ marginTop: '0.375rem', borderRadius: '8px', padding: '0.5rem', width: '100%', border: '1px solid #cbd5e1' }}
+                    style={{ marginTop: '0.375rem', borderRadius: '8px' }}
                   />
                 </div>
               </div>
 
               <div className="form-group" style={{ marginBottom: '1.5rem' }}>
-                <label style={{ fontWeight: 600, fontSize: '0.85rem', color: '#475569' }}>Estado</label>
+                <label style={{ fontWeight: 600, fontSize: '0.85rem', color: 'rgba(255,255,255,0.6)' }}>Estado</label>
                 <select
                   value={formData.estado}
                   onChange={(e) => setFormData({ ...formData, estado: e.target.value })}
-                  style={{ marginTop: '0.375rem', borderRadius: '8px', height: '40px', width: '100%', border: '1px solid #cbd5e1', padding: '0 0.5rem' }}
+                  style={{ marginTop: '0.375rem', borderRadius: '8px', height: '40px', colorScheme: 'dark' }}
                 >
-                  <option value="activa">Activa — Disponible para uso</option>
-                  <option value="inactiva">Inactiva — No disponible</option>
+                  <option value="activa" style={{ background: '#1e1c35' }}>Activa — Disponible para uso</option>
+                  <option value="inactiva" style={{ background: '#1e1c35' }}>Inactiva — No disponible</option>
                 </select>
               </div>
 
               <div style={{ display: 'flex', gap: '1rem', marginTop: '1.5rem' }}>
-                <button type="button" className="btn btn-outline" style={{ flex: 1, height: '40px', borderRadius: '8px' }} onClick={() => setShowModal(false)}>
+                <button type="button" className="btn btn-outline" style={{ flex: 1 }} onClick={() => setShowModal(false)}>
                   Cancelar
                 </button>
-                <button type="submit" className="btn btn-primary" style={{ flex: 1, fontWeight: 700, height: '40px', borderRadius: '8px' }}>
+                <button type="submit" className="btn btn-primary" style={{ flex: 1, fontWeight: 700 }}>
                   {editMode ? 'Guardar Cambios' : 'Crear Ventanilla'}
                 </button>
               </div>

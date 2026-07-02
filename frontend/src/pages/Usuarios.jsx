@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, UserPlus, Edit, Trash2, ShieldCheck, Mail, Info, RefreshCw, UserCheck, UserX } from 'lucide-react';
+import { Plus, UserPlus, Edit, Trash2, ShieldCheck, Mail, Info, RefreshCw, UserCheck, UserX, Eye, EyeOff } from 'lucide-react';
 import api from '../services/api';
 
 const Usuarios = () => {
@@ -8,6 +8,7 @@ const Usuarios = () => {
   
   // Estados de modal
   const [showModal, setShowModal] = useState(false);
+  const [showPwd, setShowPwd] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [selectedId, setSelectedId] = useState(null);
 
@@ -67,6 +68,7 @@ const Usuarios = () => {
       ventanilla: ''
     });
     setVentanillaSearch('');
+    setShowPwd(false);
     setShowModal(true);
   };
 
@@ -145,6 +147,53 @@ const Usuarios = () => {
     }
   };
 
+  // Avatar: gradiente basado en la primera letra del nombre
+  const AVATAR_GRADIENTS = [
+    'linear-gradient(135deg, #7c3aed, #a855f7)',
+    'linear-gradient(135deg, #059669, #10b981)',
+    'linear-gradient(135deg, #ea580c, #f97316)',
+    'linear-gradient(135deg, #0ea5e9, #38bdf8)',
+    'linear-gradient(135deg, #db2777, #ec4899)',
+    'linear-gradient(135deg, #7c3aed, #6366f1)',
+    'linear-gradient(135deg, #0d9488, #14b8a6)',
+    'linear-gradient(135deg, #b45309, #f59e0b)',
+  ];
+  const getAvatarGradient = (nombre) => {
+    const idx = (nombre?.charCodeAt(0) || 0) % AVATAR_GRADIENTS.length;
+    return AVATAR_GRADIENTS[idx];
+  };
+
+  // Paleta de colores por ventanilla
+  const VENTANILLA_PALETA = [
+    { bg: 'rgba(124,58,237,0.25)',  border: 'rgba(124,58,237,0.45)',  color: '#c4b5fd' }, // morado
+    { bg: 'rgba(5,150,105,0.20)',   border: 'rgba(5,150,105,0.40)',   color: '#34d399' }, // verde
+    { bg: 'rgba(234,88,12,0.20)',   border: 'rgba(234,88,12,0.40)',   color: '#fb923c' }, // naranja
+    { bg: 'rgba(14,165,233,0.20)',  border: 'rgba(14,165,233,0.40)',  color: '#38bdf8' }, // azul
+    { bg: 'rgba(236,72,153,0.20)',  border: 'rgba(236,72,153,0.40)',  color: '#f472b6' }, // rosa
+    { bg: 'rgba(250,204,21,0.18)',  border: 'rgba(250,204,21,0.38)',  color: '#fde047' }, // amarillo
+    { bg: 'rgba(99,102,241,0.22)',  border: 'rgba(99,102,241,0.42)',  color: '#a5b4fc' }, // índigo
+    { bg: 'rgba(20,184,166,0.20)',  border: 'rgba(20,184,166,0.40)',  color: '#2dd4bf' }, // teal
+  ];
+
+  const getVentanillaStyle = (numero) => {
+    // Extrae el índice numérico de la ventanilla (ej: "V-001" → 1, "3" → 3)
+    const num = parseInt(String(numero).replace(/\D/g, '')) || 0;
+    const paleta = VENTANILLA_PALETA[num % VENTANILLA_PALETA.length];
+    return {
+      display: 'inline-flex',
+      alignItems: 'center',
+      padding: '0.22rem 0.65rem',
+      borderRadius: '999px',
+      fontSize: '0.75rem',
+      fontWeight: 700,
+      letterSpacing: '0.02em',
+      background: paleta.bg,
+      color: paleta.color,
+      border: `1px solid ${paleta.border}`,
+      whiteSpace: 'nowrap',
+    };
+  };
+
   if (loading) {
     return (
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '60vh', color: 'var(--primary)', fontWeight: 'bold' }}>
@@ -171,90 +220,85 @@ const Usuarios = () => {
       </div>
 
       {/* Tabla Premium */}
-      <div className="table-container" style={{ border: '1px solid var(--border)', boxShadow: 'var(--shadow)' }}>
-        <table>
+      <div className="table-container" style={{ border: '1px solid var(--border)', boxShadow: 'var(--shadow)', overflowX: 'auto' }}>
+        <table style={{ fontSize: '0.82rem' }}>
           <thead>
             <tr>
-              <th>Nombre Completo</th>
-              <th>Correo Electrónico</th>
-              <th>Rol Asignado</th>
-              <th>Ventanilla</th>
-              <th>Estado</th>
-              <th>Fecha de Registro</th>
-              <th style={{ textAlign: 'right' }}>Acciones</th>
+              <th style={{ whiteSpace: 'nowrap' }}>Nombre</th>
+              <th style={{ whiteSpace: 'nowrap' }}>Correo</th>
+              <th style={{ whiteSpace: 'nowrap' }}>Rol</th>
+              <th style={{ whiteSpace: 'nowrap' }}>Ventanilla</th>
+              <th style={{ whiteSpace: 'nowrap' }}>Estado</th>
+              <th style={{ whiteSpace: 'nowrap' }}>Registro</th>
+              <th style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>Acciones</th>
             </tr>
           </thead>
           <tbody>
             {usuarios.map((u) => (
               <tr key={u._id}>
-                <td>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <td style={{ padding: '0.6rem 0.75rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                     <div style={{
-                      width: '34px',
-                      height: '34px',
+                      width: '30px', height: '30px',
                       borderRadius: '50%',
-                      background: '#f1f5f9',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      color: 'var(--primary)',
-                      fontWeight: 700,
-                      fontSize: '0.85rem'
+                      background: getAvatarGradient(u.nombre),
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      color: 'white', fontWeight: 700, fontSize: '0.72rem', flexShrink: 0,
                     }}>
                       {u.nombre.charAt(0)}{u.apellido.charAt(0)}
                     </div>
-                    <strong>{u.nombre} {u.apellido}</strong>
+                    <span style={{ fontWeight: 600, whiteSpace: 'nowrap' }}>{u.nombre} {u.apellido}</span>
                   </div>
                 </td>
-                <td>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', color: 'var(--text-muted)' }}>
-                    <Mail size={14} />
-                    <span>{u.email}</span>
+                <td style={{ padding: '0.6rem 0.75rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', color: 'var(--text-muted)' }}>
+                    <Mail size={12} />
+                    <span style={{ fontSize: '0.8rem' }}>{u.email}</span>
                   </div>
                 </td>
-                <td>
+                <td style={{ padding: '0.6rem 0.75rem' }}>
                   <span className={`badge ${
-                    u.rol === 'ADMINISTRADOR' ? 'badge-danger' : 
+                    u.rol === 'ADMINISTRADOR' ? 'badge-danger' :
                     u.rol === 'OPERADOR' ? 'badge-primary' : 'badge-success'
-                  }`} style={{ fontSize: '0.75rem', fontWeight: 700 }}>
+                  }`} style={{ fontSize: '0.68rem', fontWeight: 700, whiteSpace: 'nowrap' }}>
                     {u.rol}
                   </span>
                 </td>
-                <td>
+                <td style={{ padding: '0.6rem 0.75rem' }}>
                   {u.rol === 'OPERADOR' ? (
                     u.ventanilla ? (
-                      <span className="badge" style={{ fontSize: '0.75rem', fontWeight: 700, backgroundColor: '#e0f2fe', color: '#0369a1', padding: '0.25rem 0.5rem', borderRadius: '4px' }}>
-                        Ventanilla {u.ventanilla.numero}
+                      <span style={getVentanillaStyle(u.ventanilla.numero)}>
+                        V. {u.ventanilla.numero}
                       </span>
                     ) : (
-                      <span style={{ color: 'var(--text-muted)', fontStyle: 'italic', fontSize: '0.85rem' }}>Sin asignar</span>
+                      <span style={{ color: 'rgba(255,255,255,0.3)', fontStyle: 'italic', fontSize: '0.78rem' }}>Sin asignar</span>
                     )
                   ) : (
-                    <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>—</span>
+                    <span style={{ color: 'rgba(255,255,255,0.25)', fontSize: '0.82rem' }}>—</span>
                   )}
                 </td>
-                <td>
-                  <button 
+                <td style={{ padding: '0.6rem 0.75rem' }}>
+                  <button
                     onClick={() => toggleEstado(u)}
-                    style={{ padding: 0, display: 'flex', alignItems: 'center', gap: '0.35rem', cursor: 'pointer', background: 'none', border: 'none' }}
-                    title={u.estado ? 'Desactivar Cuenta' : 'Activar Cuenta'}
+                    style={{ padding: 0, display: 'flex', alignItems: 'center', gap: '0.3rem', cursor: 'pointer', background: 'none', border: 'none' }}
+                    title={u.estado ? 'Desactivar' : 'Activar'}
                   >
-                    <span className={`badge badge-${u.estado ? 'success' : 'danger'}`} style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
-                      {u.estado ? <UserCheck size={12} /> : <UserX size={12} />}
+                    <span className={`badge badge-${u.estado ? 'success' : 'danger'}`} style={{ fontSize: '0.68rem', display: 'inline-flex', alignItems: 'center', gap: '0.2rem', whiteSpace: 'nowrap' }}>
+                      {u.estado ? <UserCheck size={11} /> : <UserX size={11} />}
                       {u.estado ? 'ACTIVO' : 'INACTIVO'}
                     </span>
                   </button>
                 </td>
-                <td style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                <td style={{ fontSize: '0.78rem', color: 'var(--text-muted)', padding: '0.6rem 0.75rem', whiteSpace: 'nowrap' }}>
                   {new Date(u.createdAt).toLocaleDateString('es-ES')}
                 </td>
-                <td>
-                  <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
-                    <button className="btn btn-outline" style={{ padding: '0.4rem 0.6rem', color: 'var(--primary)', borderColor: '#dbeafe' }} onClick={() => openEditModal(u)}>
-                      <Edit size={16} />
+                <td style={{ padding: '0.6rem 0.75rem' }}>
+                  <div style={{ display: 'flex', gap: '0.35rem', justifyContent: 'flex-end' }}>
+                    <button className="btn btn-outline" style={{ padding: '0.3rem 0.5rem', color: '#a5b4fc', borderColor: 'rgba(99,102,241,0.3)' }} onClick={() => openEditModal(u)}>
+                      <Edit size={14} />
                     </button>
-                    <button className="btn btn-outline" style={{ padding: '0.4rem 0.6rem', color: 'var(--danger)', borderColor: '#fee2e2' }} onClick={() => handleDelete(u._id)}>
-                      <Trash2 size={16} />
+                    <button className="btn btn-outline" style={{ padding: '0.3rem 0.5rem', color: '#f87171', borderColor: 'rgba(248,113,113,0.3)' }} onClick={() => handleDelete(u._id)}>
+                      <Trash2 size={14} />
                     </button>
                   </div>
                 </td>
@@ -266,8 +310,8 @@ const Usuarios = () => {
 
       {/* Modal para Crear y Editar */}
       {showModal && (
-        <div className="modal-overlay" style={{ background: 'rgba(15, 23, 42, 0.6)' }}>
-          <div className="modal-content" style={{ maxWidth: '480px', borderRadius: '16px' }}>
+        <div className="modal-overlay" style={{ background: 'rgba(15, 23, 42, 0.75)', alignItems: 'flex-start', paddingTop: '2rem', paddingBottom: '2rem' }}>
+          <div className="modal-content" style={{ maxWidth: '480px', width: '100%', borderRadius: '16px', maxHeight: 'calc(100vh - 4rem)', overflowY: 'auto' }}>
             <div className="modal-header">
               <h2 style={{ fontSize: '1.25rem', fontWeight: 800 }}>{editMode ? 'Editar Usuario' : 'Registrar Nuevo Usuario'}</h2>
               <button onClick={() => setShowModal(false)} style={{ color: 'var(--text-muted)', fontSize: '1.5rem', fontWeight: 'bold' }}>&times;</button>
@@ -312,14 +356,30 @@ const Usuarios = () => {
                 <label style={{ fontWeight: 600 }}>
                   Contraseña {editMode && <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>(dejar en blanco para no modificar)</span>}
                 </label>
-                <input 
-                  type="password" 
-                  required={!editMode}
-                  value={formData.password} 
-                  placeholder={editMode ? "••••••••" : ""}
-                  onChange={(e) => setFormData({...formData, password: e.target.value})}
-                  style={{ marginTop: '0.35rem', borderRadius: '8px' }}
-                />
+                <div style={{ position: 'relative', marginTop: '0.35rem' }}>
+                  <input
+                    type={showPwd ? 'text' : 'password'}
+                    required={!editMode}
+                    value={formData.password}
+                    placeholder={editMode ? '••••••••' : ''}
+                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                    style={{ borderRadius: '8px', paddingRight: '2.75rem' }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPwd(p => !p)}
+                    style={{
+                      position: 'absolute', right: '0.75rem', top: '50%',
+                      transform: 'translateY(-50%)',
+                      background: 'none', border: 'none', cursor: 'pointer',
+                      color: 'rgba(255,255,255,0.4)', padding: 0,
+                      display: 'flex', alignItems: 'center',
+                    }}
+                    title={showPwd ? 'Ocultar contraseña' : 'Ver contraseña'}
+                  >
+                    {showPwd ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
               </div>
 
               <div className="form-group" style={{ marginBottom: '1.5rem' }}>
@@ -338,11 +398,11 @@ const Usuarios = () => {
                       setVentanillaSearch('');
                     }
                   }}
-                  style={{ marginTop: '0.35rem', borderRadius: '8px', height: '40px' }}
+                  style={{ marginTop: '0.35rem', borderRadius: '8px', height: '40px', colorScheme: 'dark', background: 'rgba(255,255,255,0.05)', color: 'var(--text-main)', border: '1.5px solid rgba(255,255,255,0.08)' }}
                 >
-                  <option value="ADMINISTRADOR">ADMINISTRADOR (Acceso Total)</option>
-                  <option value="OPERADOR">OPERADOR (Consola de Atención)</option>
-                  <option value="VIGILANTE">VIGILANTE (Generador de Tickets)</option>
+                  <option value="ADMINISTRADOR" style={{ background: '#1e1c35' }}>ADMINISTRADOR (Acceso Total)</option>
+                  <option value="OPERADOR" style={{ background: '#1e1c35' }}>OPERADOR (Consola de Atención)</option>
+                  <option value="VIGILANTE" style={{ background: '#1e1c35' }}>VIGILANTE (Generador de Tickets)</option>
                 </select>
               </div>
 
@@ -408,8 +468,8 @@ const Usuarios = () => {
                       top: '100%',
                       left: 0,
                       right: 0,
-                      backgroundColor: 'white',
-                      border: '1px solid var(--border)',
+                      backgroundColor: '#1e1c35',
+                      border: '1px solid rgba(124,58,237,0.25)',
                       borderRadius: '8px',
                       boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
                       zIndex: 50,
@@ -450,18 +510,18 @@ const Usuarios = () => {
                               style={{
                                 padding: '0.75rem 1rem',
                                 cursor: 'pointer',
-                                backgroundColor: isSelected ? '#f0fdf4' : 'transparent',
-                                color: isSelected ? 'var(--primary)' : 'var(--text-main)',
+                                backgroundColor: isSelected ? 'rgba(124,58,237,0.2)' : 'transparent',
+                                color: isSelected ? '#c4b5fd' : 'var(--text-main)',
                                 display: 'flex',
                                 justifyContent: 'space-between',
                                 alignItems: 'center',
-                                borderBottom: '1px solid #f1f5f9',
+                                borderBottom: '1px solid rgba(255,255,255,0.05)',
                                 fontSize: '0.9rem',
                                 transition: 'background-color 0.2s',
                                 opacity: isInactive ? 0.6 : 1
                               }}
                               onMouseEnter={(e) => {
-                                if (!isSelected) e.currentTarget.style.backgroundColor = '#f8fafc';
+                                if (!isSelected) e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.05)';
                               }}
                               onMouseLeave={(e) => {
                                 if (!isSelected) e.currentTarget.style.backgroundColor = 'transparent';
@@ -497,7 +557,7 @@ const Usuarios = () => {
                 </div>
               )}
 
-              <div className="checkbox-group" style={{ marginBottom: '1.5rem', background: '#f8fafc', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <div className="checkbox-group" style={{ marginBottom: '1.5rem', background: 'rgba(255,255,255,0.04)', padding: '0.75rem', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.08)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                 <input 
                   type="checkbox" 
                   id="estado_chk"

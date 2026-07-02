@@ -23,6 +23,7 @@ router.put('/:id/cancelar', authorize('ADMINISTRADOR'), turnoController.cancelar
 
 // Rutas administrativas genéricas
 router.put('/:id', authorize('ADMINISTRADOR'), turnoController.updateTurno);
+router.delete('/por-fecha/:fecha', authorize('ADMINISTRADOR'), turnoController.deleteTurnosPorFecha);
 router.delete('/:id', authorize('ADMINISTRADOR'), turnoController.deleteTurno);
 
 module.exports = router;

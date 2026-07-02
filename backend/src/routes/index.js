@@ -9,6 +9,7 @@ const ventanillaRoutes = require('./ventanillaRoutes');
 const historialRoutes = require('./historialRoutes');
 const reporteRoutes = require('./reporteRoutes');
 const configuracionRoutes = require('./configuracionRoutes');
+const entidadRoutes = require('./entidadRoutes');
 
 router.use('/auth', authRoutes);
 router.use('/usuarios', usuarioRoutes);
@@ -18,5 +19,6 @@ router.use('/ventanillas', ventanillaRoutes);
 router.use('/historial', historialRoutes);
 router.use('/reportes', reporteRoutes);
 router.use('/configuracion', configuracionRoutes);
+router.use('/entidades', entidadRoutes);
 
 module.exports = router;

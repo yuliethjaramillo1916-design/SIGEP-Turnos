@@ -1,27 +1,53 @@
 import { useState, useEffect } from 'react';
-import { Users, Ticket, Clock, CheckCircle, BarChart3, TrendingUp, Calendar, AlertCircle } from 'lucide-react';
+import { Users, Ticket, Clock, CheckCircle, BarChart3, TrendingUp, Calendar, AlertCircle, Monitor, ChevronLeft, ChevronRight } from 'lucide-react';
 import api from '../services/api';
+
+/* ── Mini sparkline SVG ── */
+const Sparkline = ({ data, color = '#a78bfa', height = 32 }) => {
+  if (!data || data.length < 2) return null;
+  const max = Math.max(...data, 1);
+  const w = 80; const h = height;
+  const pts = data.map((v, i) => {
+    const x = (i / (data.length - 1)) * w;
+    const y = h - (v / max) * h;
+    return `${x},${y}`;
+  }).join(' ');
+  return (
+    <svg width={w} height={h} style={{ display: 'block', opacity: 0.8 }}>
+      <polyline points={pts} fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <circle cx={parseFloat(pts.split(' ').pop().split(',')[0])} cy={parseFloat(pts.split(' ').pop().split(',')[1])} r="3" fill={color} />
+    </svg>
+  );
+};
 
 const Dashboard = () => {
   const [stats, setStats] = useState({
-    summary: {
-      totalTurnos: 0,
-      enEspera: 0,
-      atendiendo: 0,
-      finalizados: 0,
-      cancelados: 0,
-      pausados: 0,
-      tiempoEsperaPromedio: 0
-    },
+    summary: { totalTurnos:0, enEspera:0, atendiendo:0, finalizados:0, cancelados:0, pausados:0, tiempoEsperaPromedio:0, limiteTurnos:0 },
     tramitesDistribucion: {},
     horasDistribucion: Array(24).fill(0)
   });
-  
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading]         = useState(true);
+  const [ventanillas, setVentanillas] = useState([]);
+  const [ultimosTurnos, setUltimosTurnos] = useState([]);
+  const [sparkData, setSparkData]     = useState({ total:[], espera:[], atendiendo:[], finalizados:[] });
+  const [calMes, setCalMes] = useState({ year: new Date().getFullYear(), month: new Date().getMonth() });
+
+  /* Reloj en tiempo real */
+  const [horaActual, setHoraActual] = useState('');
+  useEffect(() => {
+    const tick = () => {
+      const d = new Date();
+      setHoraActual(d.toLocaleTimeString('es-ES', { hour:'2-digit', minute:'2-digit', second:'2-digit' }));
+    };
+    tick();
+    const t = setInterval(tick, 1000);
+    return () => clearInterval(t);
+  }, []);
 
   useEffect(() => {
     fetchStats();
-    const interval = setInterval(fetchStats, 5000); // Polling cada 5s
+    fetchExtra();
+    const interval = setInterval(() => { fetchStats(); fetchExtra(); }, 8000);
     return () => clearInterval(interval);
   }, []);
 
@@ -30,12 +56,27 @@ const Dashboard = () => {
       const response = await api.get('/reportes/dashboard');
       if (response.data) {
         setStats(response.data);
+        // Acumular sparkline con el valor actual
+        setSparkData(prev => ({
+          total:       [...prev.total.slice(-11),       response.data.summary.totalTurnos],
+          espera:      [...prev.espera.slice(-11),      response.data.summary.enEspera],
+          atendiendo:  [...prev.atendiendo.slice(-11),  response.data.summary.atendiendo],
+          finalizados: [...prev.finalizados.slice(-11), response.data.summary.finalizados],
+        }));
       }
       setLoading(false);
-    } catch (error) {
-      console.error('Error fetching dashboard stats:', error);
-      setLoading(false);
-    }
+    } catch (error) { setLoading(false); }
+  };
+
+  const fetchExtra = async () => {
+    try {
+      const [ventRes, turnosRes] = await Promise.all([
+        api.get('/ventanillas'),
+        api.get('/turnos'),
+      ]);
+      setVentanillas(ventRes.data || []);
+      setUltimosTurnos((turnosRes.data || []).slice(0, 6));
+    } catch {}
   };
 
   // Helper para dar formato legible al tiempo promedio de espera (segundos)
@@ -58,10 +99,21 @@ const Dashboard = () => {
   const { summary, tramitesDistribucion, horasDistribucion } = stats;
 
   const cards = [
-    { label: 'Total Turnos del Día', value: summary.totalTurnos, icon: <Ticket size={24} style={{ color: '#2563eb' }} />, color: 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)', text: '#1e40af' },
-    { label: 'En Cola de Espera', value: summary.enEspera, icon: <Clock size={24} style={{ color: '#d97706' }} />, color: 'linear-gradient(135deg, #fef9c3 0%, #fef3c7 100%)', text: '#854d0e' },
-    { label: 'Atendiendo Ahora', value: summary.atendiendo, icon: <Users size={24} style={{ color: '#0891b2' }} />, color: 'linear-gradient(135deg, #ecfeff 0%, #cffafe 100%)', text: '#0e7490' },
-    { label: 'Atendidos con Éxito', value: summary.finalizados, icon: <CheckCircle size={24} style={{ color: '#16a34a' }} />, color: 'linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)', text: '#166534' },
+    {
+      label: 'Total Turnos del Día',
+      value: summary.limiteTurnos > 0
+        ? `${summary.totalTurnos} / ${summary.limiteTurnos}`
+        : summary.totalTurnos,
+      subtext: summary.limiteTurnos > 0
+        ? `${Math.round(summary.totalTurnos / summary.limiteTurnos * 100)}% del límite diario`
+        : null,
+      spark: sparkData.total, sparkColor: '#a78bfa',
+      icon: <Ticket size={24} style={{ color: '#a78bfa' }} />,
+      color: 'rgba(124,58,237,0.15)', border: 'rgba(124,58,237,0.3)',
+    },
+    { label: 'En Cola de Espera',   value: summary.enEspera,    spark: sparkData.espera,      sparkColor: '#fbbf24', icon: <Clock size={24} style={{ color: '#fbbf24' }} />,        color: 'rgba(251,191,36,0.12)',  border: 'rgba(251,191,36,0.3)'  },
+    { label: 'Atendiendo Ahora',    value: summary.atendiendo,  spark: sparkData.atendiendo,  sparkColor: '#38bdf8', icon: <Users size={24} style={{ color: '#38bdf8' }} />,        color: 'rgba(56,189,248,0.12)',  border: 'rgba(56,189,248,0.3)'  },
+    { label: 'Atendidos con Éxito', value: summary.finalizados, spark: sparkData.finalizados, sparkColor: '#34d399', icon: <CheckCircle size={24} style={{ color: '#34d399' }} />,  color: 'rgba(52,211,153,0.12)',  border: 'rgba(52,211,153,0.3)'  },
   ];
 
   // Encontrar el valor máximo de horasDistribucion para escalar las barras SVG del gráfico
@@ -80,8 +132,9 @@ const Dashboard = () => {
 
   return (
     <div style={{ fontFamily: "'Inter', sans-serif" }}>
+
       {/* Título de Cabecera */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom: '1.5rem' }}>
         <div>
           <h1 style={{ fontSize: '1.875rem', fontWeight: 800, color: 'var(--text-main)', letterSpacing: '-0.025em' }}>
             Panel de Control
@@ -90,95 +143,203 @@ const Dashboard = () => {
             Monitoreo analítico y desempeño operativo en tiempo real.
           </p>
         </div>
-        <div style={{ 
-          display: 'flex', 
-          alignItems: 'center', 
-          gap: '0.5rem', 
-          background: 'white', 
-          padding: '0.5rem 1rem', 
-          borderRadius: '12px', 
-          border: '1px solid var(--border)',
-          boxShadow: 'var(--shadow)',
-          fontSize: '0.875rem',
-          fontWeight: 600,
-          color: 'var(--text-muted)'
+        {/* Fecha + hora */}
+        <div style={{
+          display:'flex', flexDirection:'column', alignItems:'flex-end', gap:'2px',
+          background:'rgba(255,255,255,0.04)', border:'1px solid rgba(124,58,237,0.2)',
+          borderRadius:'14px', padding:'0.6rem 1.1rem',
         }}>
-          <Calendar size={16} />
-          <span>Hoy: {new Date().toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</span>
+          <span style={{ fontSize:'0.68rem', fontWeight:700, color:'rgba(255,255,255,0.4)', textTransform:'uppercase', letterSpacing:'0.07em' }}>
+            {new Date().toLocaleDateString('es-ES', { weekday:'long', day:'numeric', month:'long', year:'numeric' })}
+          </span>
+          <span style={{ fontSize:'1.35rem', fontWeight:800, color:'white', letterSpacing:'0.05em', fontVariantNumeric:'tabular-nums', lineHeight:1 }}>
+            {horaActual}
+          </span>
         </div>
       </div>
+
+      {/* ── Banner Hero + Mini Calendario ── */}
+      <div style={{ display:'grid', gridTemplateColumns:'1fr 260px', gap:'1.25rem', marginBottom:'2rem', alignItems:'stretch' }} className="hero-grid">
+
+        {/* Banner izquierdo */}
+        <div style={{
+          borderRadius: '20px',
+          position: 'relative', overflow: 'hidden',
+          boxShadow: '0 12px 40px rgba(124,58,237,0.35)',
+          minHeight: '160px',
+        }}>
+          {/* Imagen de fondo */}
+          <img
+            src="/turnos.png"
+            alt=""
+            style={{
+              position: 'absolute', inset: 0,
+              width: '100%', height: '100%',
+              objectFit: 'cover', objectPosition: 'center',
+              display: 'block',
+              userSelect: 'none', pointerEvents: 'none',
+            }}
+          />
+          {/* Overlay sutil solo para legibilidad del texto */}
+          <div style={{
+            position: 'absolute', inset: 0,
+            background: 'linear-gradient(to right, rgba(0,0,0,0.5) 0%, rgba(0,0,0,0.15) 60%, transparent 100%)',
+          }} />
+          {/* Orbes decorativos */}
+          <div style={{ position:'absolute', top:'-40px', right:'-40px', width:'200px', height:'200px', borderRadius:'50%', background:'rgba(255,255,255,0.05)', pointerEvents:'none' }} />
+          <div style={{ position:'absolute', bottom:'-30px', right:'80px', width:'120px', height:'120px', borderRadius:'50%', background:'rgba(255,255,255,0.03)', pointerEvents:'none' }} />
+
+          <div style={{ position:'relative', zIndex:1, padding: '1.75rem 2rem' }}>
+          </div>
+        </div>
+
+        {/* Mini calendario a la derecha del banner */}
+        <div style={{
+          background: 'var(--bg-card)', borderRadius: '20px',
+          border: '1px solid var(--border)',
+          padding: '1.25rem',
+          boxShadow: 'var(--shadow)',
+        }}>
+          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'0.875rem' }}>
+            <button onClick={()=>setCalMes(p=>{const d=new Date(p.year,p.month-1,1);return{year:d.getFullYear(),month:d.getMonth()};})}
+              style={{ background:'none', border:'none', cursor:'pointer', color:'rgba(255,255,255,0.4)', display:'flex', padding:'3px' }}>
+              <ChevronLeft size={15} />
+            </button>
+            <span style={{ fontSize:'0.82rem', fontWeight:800, color:'rgba(255,255,255,0.75)', textTransform:'capitalize' }}>
+              {new Date(calMes.year,calMes.month).toLocaleDateString('es-ES',{month:'long',year:'numeric'})}
+            </span>
+            <button onClick={()=>setCalMes(p=>{const d=new Date(p.year,p.month+1,1);return{year:d.getFullYear(),month:d.getMonth()};})}
+              style={{ background:'none', border:'none', cursor:'pointer', color:'rgba(255,255,255,0.4)', display:'flex', padding:'3px' }}>
+              <ChevronRight size={15} />
+            </button>
+          </div>
+
+          {/* Cabecera días semana */}
+          <div style={{ display:'grid', gridTemplateColumns:'repeat(7,1fr)', gap:'1px', marginBottom:'4px' }}>
+            {['D','L','M','X','J','V','S'].map(d=>(
+              <div key={d} style={{ textAlign:'center', fontSize:'0.62rem', fontWeight:700, color:'rgba(255,255,255,0.25)', padding:'2px 0' }}>{d}</div>
+            ))}
+          </div>
+
+          {/* Días del mes */}
+          {(()=>{
+            const hoy=new Date();
+            const first=new Date(calMes.year,calMes.month,1).getDay();
+            const dias=new Date(calMes.year,calMes.month+1,0).getDate();
+            const diasConAct=new Set(ultimosTurnos.map(t=>{
+              const f=t.createdAt?new Date(t.createdAt):null;
+              return f&&f.getMonth()===calMes.month&&f.getFullYear()===calMes.year?f.getDate():null;
+            }).filter(Boolean));
+            const celdas=[];
+            for(let i=0;i<first;i++) celdas.push(null);
+            for(let d=1;d<=dias;d++) celdas.push(d);
+            return(
+              <div style={{ display:'grid', gridTemplateColumns:'repeat(7,1fr)', gap:'2px' }}>
+                {celdas.map((d,i)=>{
+                  const esHoy=d&&d===hoy.getDate()&&calMes.month===hoy.getMonth()&&calMes.year===hoy.getFullYear();
+                  const tieneAct=d&&diasConAct.has(d);
+                  return(
+                    <div key={i} style={{
+                      textAlign:'center', fontSize:'0.72rem', fontWeight:esHoy?800:400,
+                      padding:'5px 2px', borderRadius:'7px', position:'relative',
+                      background:esHoy?'linear-gradient(135deg,#7c3aed,#a855f7)':'transparent',
+                      color:esHoy?'white':d?'rgba(255,255,255,0.6)':'transparent',
+                      cursor: d ? 'default' : 'default',
+                    }}>
+                      {d||''}
+                      {tieneAct&&!esHoy&&(
+                        <span style={{ position:'absolute', bottom:'2px', left:'50%', transform:'translateX(-50%)', width:'4px', height:'4px', borderRadius:'50%', background:'#a78bfa', display:'block' }} />
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })()}
+        </div>
+
+      </div>{/* fin hero-grid */}
+
+      {/* ── Layout principal: columna izquierda (contenido) + columna derecha (panel) ── */}
+      <div style={{ display:'grid', gridTemplateColumns:'1fr 300px', gap:'1.5rem', alignItems:'start' }} className="dash-main-grid">
+
+        {/* ── COLUMNA IZQUIERDA ── */}
+        <div style={{ minWidth:0 }}>
 
       {/* Grid de Tarjetas de Estadísticas */}
       <div className="stats-grid" style={{ marginBottom: '2rem' }}>
         {cards.map((card, index) => (
-          <div key={index} className="card" style={{ 
+          <div key={index} className="card dashboard-card" style={{ 
             background: 'var(--bg-card)', 
-            border: '1px solid var(--border)', 
+            border: `1px solid ${card.border}`, 
             position: 'relative',
             overflow: 'hidden',
             transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
-          }}
-          className="dashboard-card"
-          >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
               <div>
-                <p style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-muted)' }}>{card.label}</p>
-                <h2 style={{ fontSize: '2.25rem', fontWeight: 800, marginTop: '0.5rem', color: '#1e293b', letterSpacing: '-0.03em' }}>
+                <p style={{ fontSize: '0.8rem', fontWeight: 600, color: 'rgba(255,255,255,0.45)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{card.label}</p>
+                <h2 style={{ fontSize: card.value?.toString().includes('/') ? '1.75rem' : '2.25rem', fontWeight: 800, marginTop: '0.4rem', color: 'var(--text-main)', letterSpacing: '-0.03em' }}>
                   {card.value}
                 </h2>
+                {/* Barra de progreso cuando hay límite */}
+                {card.subtext && summary.limiteTurnos > 0 && (
+                  <div style={{ marginTop: '0.5rem' }}>
+                    <div style={{ width: '100%', height: '4px', background: 'rgba(255,255,255,0.08)', borderRadius: '2px', overflow: 'hidden' }}>
+                      <div style={{
+                        height: '100%',
+                        width: `${Math.min(100, Math.round(summary.totalTurnos / summary.limiteTurnos * 100))}%`,
+                        background: summary.totalTurnos >= summary.limiteTurnos ? '#f87171' : '#a78bfa',
+                        borderRadius: '2px',
+                        transition: 'width 0.6s ease',
+                      }} />
+                    </div>
+                    <p style={{ fontSize: '0.68rem', color: summary.totalTurnos >= summary.limiteTurnos ? '#f87171' : 'rgba(255,255,255,0.35)', marginTop: '3px', fontWeight: 600 }}>
+                      {card.subtext}
+                    </p>
+                  </div>
+                )}
+                {/* Sparkline */}
+                {!card.subtext && (
+                  <div style={{ marginTop: '0.5rem' }}>
+                    <Sparkline data={card.spark} color={card.sparkColor} height={28} />
+                  </div>
+                )}
               </div>
               <div style={{ 
-                padding: '1rem', 
-                borderRadius: '16px', 
-                background: card.color,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center'
+                padding: '0.875rem', borderRadius: '14px', 
+                background: card.color, border: `1px solid ${card.border}`,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                flexShrink: 0,
               }}>
                 {card.icon}
               </div>
             </div>
-            {/* Soft decorative underline */}
-            <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '4px', background: card.color }}></div>
+            <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '3px', background: card.color, borderTop: `1px solid ${card.border}` }}></div>
           </div>
         ))}
-      </div>
 
-      {/* Sección Secundaria - Tiempos y Alertas */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1.5rem', marginBottom: '2rem' }}>
-        
-        {/* Tarjeta Tiempo Promedio */}
-        <div className="card" style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', border: '1px solid var(--border)', background: 'linear-gradient(135deg, #059669 0%, #10b981 100%)', color: 'white' }}>
-          <div style={{ background: 'rgba(255, 255, 255, 0.2)', padding: '1.25rem', borderRadius: '16px' }}>
-            <TrendingUp size={36} />
+        {/* Tiempo Promedio de Espera — ocupa 2 columnas */}
+        <div className="card dashboard-card" style={{
+          background: 'linear-gradient(135deg, #059669 0%, #10b981 100%)',
+          border: '1px solid rgba(5,150,105,0.4)',
+          position: 'relative', overflow: 'hidden',
+          transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+          display: 'flex', alignItems: 'center', gap: '1.25rem',
+          color: 'white',
+          gridColumn: 'span 2',
+        }}>
+          <div style={{ background: 'rgba(255,255,255,0.2)', padding: '1rem', borderRadius: '14px', flexShrink: 0 }}>
+            <TrendingUp size={28} />
           </div>
           <div>
-            <p style={{ fontSize: '0.875rem', opacity: 0.9, fontWeight: 500 }}>Tiempo Promedio de Espera</p>
-            <h2 style={{ fontSize: '2rem', fontWeight: 800, marginTop: '0.25rem', letterSpacing: '-0.025em' }}>
+            <p style={{ fontSize: '0.75rem', fontWeight: 600, opacity: 0.85, textTransform: 'uppercase', letterSpacing: '0.04em' }}>T. Espera Prom.</p>
+            <h2 style={{ fontSize: '2rem', fontWeight: 800, marginTop: '0.3rem', letterSpacing: '-0.025em', lineHeight: 1 }}>
               {formatTime(summary.tiempoEsperaPromedio)}
             </h2>
-            <p style={{ fontSize: '0.75rem', opacity: 0.8, marginTop: '0.25rem' }}>Calculado en base a {summary.finalizados + summary.atendiendo} turnos hoy.</p>
+            <p style={{ fontSize: '0.72rem', opacity: 0.75, marginTop: '0.4rem' }}>Base: {summary.finalizados + summary.atendiendo} turnos hoy</p>
           </div>
-        </div>
-
-        {/* Tarjeta de Resumen Extra */}
-        <div className="card" style={{ display: 'flex', justifyContent: 'space-around', alignItems: 'center', border: '1px solid var(--border)' }}>
-          <div style={{ textAlign: 'center' }}>
-            <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 500 }}>Turnos Cancelados</span>
-            <h3 style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--danger)', marginTop: '0.25rem' }}>{summary.cancelados}</h3>
-          </div>
-          <div style={{ borderLeft: '1px solid var(--border)', height: '40px' }}></div>
-          <div style={{ textAlign: 'center' }}>
-            <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 500 }}>Turnos Pausados</span>
-            <h3 style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--warning)', marginTop: '0.25rem' }}>{summary.pausados}</h3>
-          </div>
-          <div style={{ borderLeft: '1px solid var(--border)', height: '40px' }}></div>
-          <div style={{ textAlign: 'center' }}>
-            <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 500 }}>Tasa de Eficacia</span>
-            <h3 style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--success)', marginTop: '0.25rem' }}>
-              {summary.totalTurnos > 0 ? `${Math.round((summary.finalizados / summary.totalTurnos) * 100)}%` : '0%'}
-            </h3>
-          </div>
+          <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '3px', background: 'rgba(255,255,255,0.2)' }}></div>
         </div>
       </div>
 
@@ -192,10 +353,10 @@ const Dashboard = () => {
             <h3 style={{ fontSize: '1.1rem', fontWeight: 700 }}>Afluencia de Turnos por Hora</h3>
           </div>
           
-          <div style={{ height: '220px', display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', padding: '0 0.5rem 1.5rem', borderBottom: '2px solid #e2e8f0', position: 'relative' }}>
+          <div style={{ height: '220px', display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', padding: '0 0.5rem 1.5rem', borderBottom: '2px solid rgba(255,255,255,0.07)', position: 'relative' }}>
             {horasHabiles.map((hora) => {
               const count = horasDistribucion[hora] || 0;
-              const barHeight = Math.max(5, (count / maxHorasCount) * 160); // Max 160px height
+              const barHeight = Math.max(5, (count / maxHorasCount) * 160);
               return (
                 <div key={hora} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1, position: 'relative' }}>
                   {/* Tooltip de valor */}
@@ -204,28 +365,26 @@ const Dashboard = () => {
                     bottom: `${barHeight + 10}px`, 
                     fontSize: '0.75rem', 
                     fontWeight: 700, 
-                    color: count > 0 ? 'var(--primary)' : 'var(--text-muted)',
-                    background: count > 0 ? '#eff6ff' : 'transparent',
+                    color: count > 0 ? '#a78bfa' : 'rgba(255,255,255,0.2)',
+                    background: count > 0 ? 'rgba(124,58,237,0.15)' : 'transparent',
                     padding: '0.1rem 0.4rem',
                     borderRadius: '4px'
                   }}>
                     {count}
                   </span>
                   
-                  {/* Barra SVG/CSS */}
-                  <div style={{ 
+                  {/* Barra */}
+                  <div className="chart-bar" style={{ 
                     width: '65%', 
                     height: `${barHeight}px`, 
-                    background: count > 0 ? 'linear-gradient(to top, #3b82f6 0%, #60a5fa 100%)' : '#cbd5e1', 
+                    background: count > 0 ? 'linear-gradient(to top, #7c3aed 0%, #a78bfa 100%)' : 'rgba(255,255,255,0.08)', 
                     borderRadius: '6px 6px 0 0',
                     transition: 'all 0.5s ease',
                     cursor: 'pointer'
-                  }}
-                  className="chart-bar"
-                  ></div>
+                  }}></div>
                   
                   {/* Etiqueta hora */}
-                  <span style={{ position: 'absolute', top: '10px', fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 600 }}>
+                  <span style={{ position: 'absolute', top: '10px', fontSize: '0.7rem', color: 'rgba(255,255,255,0.3)', fontWeight: 600 }}>
                     {String(hora).padStart(2, '0')}:00
                   </span>
                 </div>
@@ -251,11 +410,10 @@ const Dashboard = () => {
               return (
                 <div key={index} style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', fontWeight: 600 }}>
-                    <span style={{ color: '#334155' }}>{t.name}</span>
+                    <span style={{ color: 'var(--text-main)' }}>{t.name}</span>
                     <span style={{ color: 'var(--text-muted)' }}>{t.value} turnos ({percentage}%)</span>
                   </div>
-                  {/* Container de barra */}
-                  <div style={{ width: '100%', height: '8px', background: '#f1f5f9', borderRadius: '4px', overflow: 'hidden' }}>
+                  <div style={{ width: '100%', height: '8px', background: 'rgba(255,255,255,0.07)', borderRadius: '4px', overflow: 'hidden' }}>
                     <div style={{ width: `${percentage}%`, height: '100%', background: color, borderRadius: '4px', transition: 'width 0.8s ease' }}></div>
                   </div>
                 </div>
@@ -271,19 +429,84 @@ const Dashboard = () => {
 
       </div>
 
+        {/* cierre columna izquierda */}
+        </div>
+
+        {/* ── COLUMNA DERECHA fija ── */}
+        <div style={{ display:'flex', flexDirection:'column', gap:'1.25rem', position:'sticky', top:'0px', alignSelf:'start', maxHeight:'calc(100vh - 64px)', overflowY:'auto' }}>
+
+          {/* Estado de Ventanillas */}
+          <div className="card" style={{ border:'1px solid var(--border)' }}>
+            <div style={{ display:'flex', alignItems:'center', gap:'0.5rem', marginBottom:'1rem' }}>
+              <Monitor size={16} style={{ color:'#34d399' }} />
+              <h3 style={{ fontSize:'0.95rem', fontWeight:700 }}>Ventanillas</h3>
+              <span style={{ marginLeft:'auto', fontSize:'0.72rem', color:'rgba(255,255,255,0.3)' }}>{ventanillas.length} total</span>
+            </div>
+            <div style={{ display:'flex', flexDirection:'column', gap:'0.4rem', maxHeight:'180px', overflowY:'auto' }}>
+              {ventanillas.length===0 ? (
+                <div style={{ fontSize:'0.8rem', color:'rgba(255,255,255,0.25)', textAlign:'center', padding:'0.75rem' }}>Sin ventanillas</div>
+              ) : ventanillas.map(v => (
+                <div key={v._id} style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'0.45rem 0.65rem', borderRadius:'8px', background:'rgba(255,255,255,0.03)' }}>
+                  <div style={{ display:'flex', alignItems:'center', gap:'0.5rem' }}>
+                    <div style={{ width:'7px', height:'7px', borderRadius:'50%', background:v.estado==='activa'?'#34d399':'rgba(255,255,255,0.15)', boxShadow:v.estado==='activa'?'0 0 6px #34d399':'none', flexShrink:0 }} />
+                    <span style={{ fontSize:'0.8rem', fontWeight:600 }}>V. {v.numero}</span>
+                    {v.nombre && <span style={{ fontSize:'0.7rem', color:'rgba(255,255,255,0.3)' }}>{v.nombre}</span>}
+                  </div>
+                  <span style={{ fontSize:'0.7rem', color:v.estado==='activa'?'#34d399':'rgba(255,255,255,0.2)', fontWeight:600 }}>
+                    {v.operador?`${v.operador.nombre}`:'Libre'}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Últimas actividades */}
+          <div className="card" style={{ border:'1px solid var(--border)' }}>
+            <div style={{ display:'flex', alignItems:'center', gap:'0.5rem', marginBottom:'1rem' }}>
+              <BarChart3 size={16} style={{ color:'#a78bfa' }} />
+              <h3 style={{ fontSize:'0.95rem', fontWeight:700 }}>Actividad Reciente</h3>
+            </div>
+            <div style={{ display:'flex', flexDirection:'column', gap:'0.4rem', maxHeight:'220px', overflowY:'auto' }}>
+              {ultimosTurnos.length===0 ? (
+                <div style={{ textAlign:'center', padding:'1.5rem', color:'rgba(255,255,255,0.2)', fontSize:'0.82rem' }}>Sin actividad</div>
+              ) : ultimosTurnos.map((t,i)=>(
+                <div key={t._id||i} style={{ display:'flex', alignItems:'center', gap:'0.65rem', padding:'0.5rem 0.6rem', borderRadius:'9px', background:'rgba(255,255,255,0.03)' }}
+                  onMouseEnter={e=>e.currentTarget.style.background='rgba(124,58,237,0.08)'}
+                  onMouseLeave={e=>e.currentTarget.style.background='rgba(255,255,255,0.03)'}
+                >
+                  <div style={{ width:'28px', height:'28px', borderRadius:'7px', flexShrink:0,
+                    background: t.estado==='FINALIZADO'?'rgba(52,211,153,0.15)':t.estado==='ESPERA'?'rgba(251,191,36,0.15)':'rgba(124,58,237,0.15)',
+                    display:'flex', alignItems:'center', justifyContent:'center' }}>
+                    <Ticket size={13} style={{ color: t.estado==='FINALIZADO'?'#34d399':t.estado==='ESPERA'?'#fbbf24':'#a78bfa' }} />
+                  </div>
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <div style={{ fontSize:'0.82rem', fontWeight:700 }}>{t.codigoTurno}</div>
+                    <div style={{ fontSize:'0.68rem', color:'rgba(255,255,255,0.3)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                      {t.tramite?.nombre||'—'}
+                    </div>
+                  </div>
+                  <span style={{
+                    fontSize:'0.6rem', fontWeight:700, padding:'0.15rem 0.4rem', borderRadius:'999px', whiteSpace:'nowrap',
+                    background: t.estado==='FINALIZADO'?'rgba(52,211,153,0.15)':t.estado==='ESPERA'?'rgba(251,191,36,0.15)':'rgba(56,189,248,0.15)',
+                    color: t.estado==='FINALIZADO'?'#34d399':t.estado==='ESPERA'?'#fbbf24':'#38bdf8',
+                  }}>{t.estado}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+        </div>
+      </div>{/* fin dash-main-grid */}
+
       <style>{`
         .dashboard-card:hover {
           transform: translateY(-2px);
-          box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05), 0 4px 6px -2px rgba(0, 0, 0, 0.05) !important;
+          box-shadow: 0 10px 15px -3px rgba(0,0,0,0.2) !important;
         }
-        .chart-bar:hover {
-          opacity: 0.85;
-          filter: brightness(0.95);
-        }
-        @keyframes fadeIn {
-          from { opacity: 0; transform: translateY(10px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
+        .chart-bar:hover { opacity: 0.85; filter: brightness(0.95); }
+        @keyframes fadeIn { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
+        @media (max-width: 1200px) { .dash-main-grid { grid-template-columns: 1fr !important; } }
+        @media (max-width: 900px)  { .hero-grid { grid-template-columns: 1fr !important; } }
       `}</style>
     </div>
   );

@@ -23,6 +23,7 @@ const Configuracion = () => {
   const [configLoading, setConfigLoading] = useState(true);
   const [configSaving, setConfigSaving] = useState(false);
   const [configSuccess, setConfigSuccess] = useState(false);
+  const [configError, setConfigError] = useState('');
 
   // --- Ventanillas ---
   const [ventanillas, setVentanillas] = useState([]);
@@ -42,7 +43,15 @@ const Configuracion = () => {
   const fetchConfig = async () => {
     try {
       const res = await api.get('/configuracion');
-      if (res.data) setConfig(res.data);
+      if (res.data) {
+        setConfig({
+          nombre_empresa: res.data.nombre_empresa || 'SIGEP - Gestión de Turnos',
+          horario_atencion: res.data.horario_atencion || '08:00 - 18:00',
+          limite_turnos_dia: res.data.limite_turnos_dia || 200,
+          logo: res.data.logo || '',
+          activo: res.data.activo ?? true,
+        });
+      }
     } catch (err) {
       console.error('Error al cargar configuración:', err);
     } finally {
@@ -73,12 +82,32 @@ const Configuracion = () => {
   const handleSaveConfig = async () => {
     setConfigSaving(true);
     setConfigSuccess(false);
+    setConfigError('');
     try {
-      await api.post('/configuracion', config);
+      // Enviar solo los campos editables, sin _id ni metadatos de MongoDB
+      const payload = {
+        nombre_empresa: config.nombre_empresa,
+        horario_atencion: config.horario_atencion,
+        limite_turnos_dia: config.limite_turnos_dia,
+        logo: config.logo,
+        activo: config.activo,
+      };
+      const res = await api.post('/configuracion', payload);
+      if (res.data) {
+        setConfig({
+          nombre_empresa: res.data.nombre_empresa,
+          horario_atencion: res.data.horario_atencion,
+          limite_turnos_dia: res.data.limite_turnos_dia,
+          logo: res.data.logo || '',
+          activo: res.data.activo,
+        });
+      }
       setConfigSuccess(true);
-      setTimeout(() => setConfigSuccess(false), 3000);
+      setTimeout(() => setConfigSuccess(false), 4000);
     } catch (err) {
-      alert('Error al guardar la configuración: ' + (err.response?.data?.message || err.message));
+      console.error('Error guardando config:', err);
+      setConfigError('Error al guardar: ' + (err.response?.data?.message || err.message));
+      setTimeout(() => setConfigError(''), 4000);
     } finally {
       setConfigSaving(false);
     }
@@ -135,22 +164,63 @@ const Configuracion = () => {
   };
 
   const tabStyle = (tab) => ({
-    padding: '0.65rem 1.5rem',
-    borderRadius: '8px',
+    padding: '0.6rem 1.35rem',
+    borderRadius: '9px',
     fontWeight: 600,
-    fontSize: '0.9rem',
+    fontSize: '0.875rem',
     cursor: 'pointer',
     border: 'none',
     transition: 'all 0.2s',
-    background: activeTab === tab ? 'var(--primary)' : 'transparent',
-    color: activeTab === tab ? 'white' : 'var(--text-muted)',
+    background: activeTab === tab
+      ? 'linear-gradient(135deg, #7c3aed, #6d28d9)'
+      : 'transparent',
+    color: activeTab === tab ? 'white' : 'rgba(255,255,255,0.45)',
     display: 'flex',
     alignItems: 'center',
     gap: '0.5rem',
+    boxShadow: activeTab === tab ? '0 4px 14px rgba(124,58,237,0.4)' : 'none',
   });
 
   return (
     <div style={{ fontFamily: "'Inter', sans-serif" }}>
+
+      {/* Toast de notificación flotante — fuera del main para evitar que overflow lo corte */}
+      {(configSuccess || configError) && (
+        <div style={{
+          position: 'fixed',
+          top: '80px',
+          right: '1.5rem',
+          zIndex: 99999,
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.75rem',
+          padding: '1rem 1.5rem',
+          borderRadius: '12px',
+          boxShadow: '0 10px 30px rgba(0,0,0,0.5)',
+          background: configSuccess ? 'rgba(5,150,105,0.25)' : 'rgba(220,38,38,0.25)',
+          border: `1px solid ${configSuccess ? 'rgba(52,211,153,0.5)' : 'rgba(248,113,113,0.5)'}`,
+          color: configSuccess ? '#34d399' : '#f87171',
+          fontWeight: 600,
+          fontSize: '0.95rem',
+          minWidth: '300px',
+          maxWidth: '420px',
+          backdropFilter: 'blur(16px)',
+          pointerEvents: 'none',
+        }}>
+          {configSuccess
+            ? <CheckCircle size={20} style={{ flexShrink: 0 }} />
+            : <XCircle size={20} style={{ flexShrink: 0 }} />
+          }
+          <span>{configSuccess ? '✓ Configuración guardada correctamente.' : configError}</span>
+        </div>
+      )}
+
+      <style>{`
+        @keyframes slideIn {
+          from { opacity: 0; transform: translateX(40px); }
+          to   { opacity: 1; transform: translateX(0); }
+        }
+      `}</style>
       {/* Header */}
       <div style={{ marginBottom: '2rem' }}>
         <h1 style={{ fontSize: '1.875rem', fontWeight: 800, color: 'var(--text-main)' }}>
@@ -164,10 +234,11 @@ const Configuracion = () => {
       {/* Tab Navigation */}
       <div style={{
         display: 'flex',
-        gap: '0.5rem',
-        background: '#f1f5f9',
-        padding: '0.35rem',
-        borderRadius: '10px',
+        gap: '0.4rem',
+        background: 'rgba(255,255,255,0.04)',
+        border: '1px solid rgba(124,58,237,0.18)',
+        padding: '0.3rem',
+        borderRadius: '12px',
         marginBottom: '2rem',
         width: 'fit-content',
       }}>
@@ -292,19 +363,11 @@ const Configuracion = () => {
               className="btn btn-primary"
               onClick={handleSaveConfig}
               disabled={configSaving}
-              style={{ fontWeight: 700, borderRadius: '10px', padding: '0.7rem 1.75rem' }}
+              style={{ fontWeight: 700, borderRadius: '10px', padding: '0.7rem 1.75rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
             >
-              {configSaving ? (
-                <span>Guardando...</span>
-              ) : (
-                <><Save size={18} /> Guardar Configuración</>
-              )}
+              <Save size={18} />
+              <span>{configSaving ? 'Guardando...' : 'Guardar Configuración'}</span>
             </button>
-            {configSuccess && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: 'var(--success)', fontWeight: 600, fontSize: '0.9rem' }}>
-                <CheckCircle size={18} /> ¡Configuración guardada exitosamente!
-              </div>
-            )}
           </div>
         </div>
       )}
@@ -333,13 +396,13 @@ const Configuracion = () => {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1.25rem' }}>
               {ventanillas.length === 0 && (
                 <div className="card" style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>
-                  <Monitor size={40} style={{ color: '#cbd5e1', marginBottom: '0.75rem' }} />
+                  <Monitor size={40} style={{ color: 'rgba(255,255,255,0.15)', marginBottom: '0.75rem' }} />
                   <p>No hay ventanillas registradas. Crea la primera ventanilla para empezar.</p>
                 </div>
               )}
               {ventanillas.map((v) => (
                 <div key={v._id} className="card" style={{
-                  borderLeft: `4px solid ${v.estado === 'activa' ? 'var(--success)' : '#cbd5e1'}`,
+                  borderLeft: `4px solid ${v.estado === 'activa' ? '#34d399' : 'rgba(255,255,255,0.12)'}`,
                   position: 'relative',
                   transition: 'box-shadow 0.2s',
                 }}>
@@ -352,16 +415,21 @@ const Configuracion = () => {
 
                   {/* Número de ventanilla */}
                   <div style={{
-                    background: v.estado === 'activa' ? 'rgba(34,197,94,0.08)' : '#f8fafc',
+                    background: v.estado === 'activa'
+                      ? 'rgba(52,211,153,0.08)'
+                      : 'rgba(255,255,255,0.04)',
                     borderRadius: '10px',
                     padding: '1rem',
                     marginBottom: '1rem',
                     display: 'flex',
                     alignItems: 'center',
                     gap: '0.75rem',
+                    border: `1px solid ${v.estado === 'activa' ? 'rgba(52,211,153,0.15)' : 'rgba(255,255,255,0.06)'}`,
                   }}>
                     <div style={{
-                      background: v.estado === 'activa' ? 'var(--success)' : '#94a3b8',
+                      background: v.estado === 'activa'
+                        ? 'linear-gradient(135deg, #059669, #10b981)'
+                        : 'rgba(255,255,255,0.12)',
                       color: 'white',
                       fontWeight: 800,
                       fontSize: '1.25rem',
@@ -371,12 +439,14 @@ const Configuracion = () => {
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
+                      flexShrink: 0,
+                      boxShadow: v.estado === 'activa' ? '0 4px 12px rgba(5,150,105,0.35)' : 'none',
                     }}>
                       {v.numero}
                     </div>
                     <div>
-                      <div style={{ fontWeight: 700, fontSize: '0.95rem' }}>Ventanilla {v.numero}</div>
-                      <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                      <div style={{ fontWeight: 700, fontSize: '0.95rem', color: 'white' }}>Ventanilla {v.numero}</div>
+                      <div style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.45)' }}>
                         {v.nombre || 'Sin nombre asignado'}
                       </div>
                     </div>
@@ -404,14 +474,14 @@ const Configuracion = () => {
                     </button>
                     <button
                       className="btn btn-outline"
-                      style={{ padding: '0.4rem 0.6rem', color: 'var(--primary)', borderColor: '#dbeafe' }}
+                      style={{ padding: '0.4rem 0.6rem', color: '#a5b4fc', borderColor: 'rgba(99,102,241,0.3)' }}
                       onClick={() => openEditVent(v)}
                     >
                       <Edit size={16} />
                     </button>
                     <button
                       className="btn btn-outline"
-                      style={{ padding: '0.4rem 0.6rem', color: 'var(--danger)', borderColor: '#fee2e2' }}
+                      style={{ padding: '0.4rem 0.6rem', color: '#f87171', borderColor: 'rgba(248,113,113,0.3)' }}
                       onClick={() => handleDeleteVent(v._id)}
                     >
                       <Trash2 size={16} />

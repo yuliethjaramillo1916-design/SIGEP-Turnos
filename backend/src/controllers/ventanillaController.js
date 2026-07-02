@@ -2,7 +2,7 @@ const Ventanilla = require('../models/Ventanilla');
 
 exports.getVentanillas = async (req, res) => {
     try {
-        const ventanillas = await Ventanilla.find().populate('operador');
+        const ventanillas = await Ventanilla.find({ entidadId: req.user.entidadId }).populate('operador');
         res.status(200).json(ventanillas);
     } catch (error) {
         res.status(500).json({ message: error.message });
@@ -11,8 +11,8 @@ exports.getVentanillas = async (req, res) => {
 
 exports.getVentanillaById = async (req, res) => {
     try {
-        const ventanilla = await Ventanilla.findById(req.params.id).populate('operador');
-        if (!ventanilla) return res.status(404).json({ message: 'Ventanilla no encontrada' });
+        const ventanilla = await Ventanilla.findOne({ _id: req.params.id, entidadId: req.user.entidadId }).populate('operador');
+        if (!ventanilla) return res.status(404).json({ message: 'Ventanilla no encontrada o no tiene permisos para acceder a este recurso' });
         res.status(200).json(ventanilla);
     } catch (error) {
         res.status(500).json({ message: error.message });
@@ -21,7 +21,10 @@ exports.getVentanillaById = async (req, res) => {
 
 exports.createVentanilla = async (req, res) => {
     try {
-        const nuevaVentanilla = new Ventanilla(req.body);
+        const nuevaVentanilla = new Ventanilla({
+            ...req.body,
+            entidadId: req.user.entidadId
+        });
         const ventanillaGuardada = await nuevaVentanilla.save();
         res.status(201).json(ventanillaGuardada);
     } catch (error) {
@@ -31,29 +34,34 @@ exports.createVentanilla = async (req, res) => {
 
 exports.updateVentanilla = async (req, res) => {
     try {
-        const oldVentanilla = await Ventanilla.findById(req.params.id);
-        const ventanillaActualizada = await Ventanilla.findByIdAndUpdate(req.params.id, req.body, { new: true }).populate('operador');
-        if (!ventanillaActualizada) return res.status(404).json({ message: 'Ventanilla no encontrada' });
+        const oldVentanilla = await Ventanilla.findOne({ _id: req.params.id, entidadId: req.user.entidadId });
+        if (!oldVentanilla) return res.status(404).json({ message: 'Ventanilla no encontrada o no tiene permisos' });
+
+        const ventanillaActualizada = await Ventanilla.findOneAndUpdate(
+            { _id: req.params.id, entidadId: req.user.entidadId },
+            req.body,
+            { new: true }
+        ).populate('operador');
         
         // Sincronizar relación con Usuario si cambió el operador
         if (req.body.operador !== undefined) {
             const Usuario = require('../models/Usuario');
             const newOperatorId = req.body.operador || null;
-            const oldOperatorId = oldVentanilla ? oldVentanilla.operador : null;
+            const oldOperatorId = oldVentanilla.operador ? oldVentanilla.operador : null;
 
             if (String(oldOperatorId) !== String(newOperatorId)) {
                 // Desvincular operador antiguo de su campo ventanilla
                 if (oldOperatorId) {
-                    await Usuario.findByIdAndUpdate(oldOperatorId, { ventanilla: null });
+                    await Usuario.findOneAndUpdate({ _id: oldOperatorId, entidadId: req.user.entidadId }, { ventanilla: null });
                 }
                 // Vincular nuevo operador a esta ventanilla
                 if (newOperatorId) {
                     // Desvincular el nuevo operador de cualquier otra ventanilla que tuviera
                     await Ventanilla.updateMany(
-                        { operador: newOperatorId, _id: { $ne: ventanillaActualizada._id } },
+                        { operador: newOperatorId, _id: { $ne: ventanillaActualizada._id }, entidadId: req.user.entidadId },
                         { $unset: { operador: 1 } }
                     );
-                    await Usuario.findByIdAndUpdate(newOperatorId, { ventanilla: ventanillaActualizada._id });
+                    await Usuario.findOneAndUpdate({ _id: newOperatorId, entidadId: req.user.entidadId }, { ventanilla: ventanillaActualizada._id });
                 }
             }
         }
@@ -66,12 +74,12 @@ exports.updateVentanilla = async (req, res) => {
 
 exports.deleteVentanilla = async (req, res) => {
     try {
-        const ventanillaEliminada = await Ventanilla.findByIdAndDelete(req.params.id);
-        if (!ventanillaEliminada) return res.status(404).json({ message: 'Ventanilla no encontrada' });
+        const ventanillaEliminada = await Ventanilla.findOneAndDelete({ _id: req.params.id, entidadId: req.user.entidadId });
+        if (!ventanillaEliminada) return res.status(404).json({ message: 'Ventanilla no encontrada o no tiene permisos' });
         
         // Desvincular la ventanilla eliminada de cualquier usuario que la tuviera asignada
         const Usuario = require('../models/Usuario');
-        await Usuario.updateMany({ ventanilla: req.params.id }, { ventanilla: null });
+        await Usuario.updateMany({ ventanilla: req.params.id, entidadId: req.user.entidadId }, { ventanilla: null });
 
         res.status(200).json({ message: 'Ventanilla eliminada' });
     } catch (error) {

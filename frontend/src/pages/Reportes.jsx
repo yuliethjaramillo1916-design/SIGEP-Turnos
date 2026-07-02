@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
 import {
-  BarChart3, TrendingUp, Clock, CheckCircle2, XCircle,
-  Filter, Search, Download, RefreshCw, CalendarRange,
-  FileText, ChevronDown, Users, AlertTriangle, Printer
+  BarChart3, Clock, CheckCircle2, XCircle,
+  Filter, Search, RefreshCw, CalendarRange,
+  TrendingUp, Printer, Calendar
 } from 'lucide-react';
 import api from '../services/api';
+import DarkSelect from '../components/DarkSelect';
 
 const formatSegundos = (seg) => {
   if (!seg || seg <= 0) return '—';
@@ -13,12 +14,195 @@ const formatSegundos = (seg) => {
   return m > 0 ? `${m}m ${s}s` : `${s}s`;
 };
 
-const estadoBadge = {
-  ESPERA:      { cls: 'badge-primary',  label: 'ESPERA' },
-  ATENDIENDO:  { cls: 'badge-warning',  label: 'ATENDIENDO' },
-  FINALIZADO:  { cls: 'badge-success',  label: 'FINALIZADO' },
-  CANCELADO:   { cls: 'badge-danger',   label: 'CANCELADO' },
-  PAUSADO:     { cls: 'badge-warning',  label: 'PAUSADO' },
+const ESTADO_OPTS = [
+  { value: '', label: 'Todos los estados' },
+  { value: 'ESPERA', label: 'En Espera' },
+  { value: 'ATENDIENDO', label: 'Atendiendo' },
+  { value: 'FINALIZADO', label: 'Finalizado' },
+  { value: 'CANCELADO', label: 'Cancelado' },
+  { value: 'PAUSADO', label: 'Pausado' },
+];
+
+/* ─── Normaliza fecha de un turno a YYYY-MM-DD local ─── */
+const normFecha = (t) => {
+  if (t.createdAt) {
+    const d = new Date(t.createdAt);
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  }
+  if (t.fecha && /^\d{4}-\d{2}-\d{2}/.test(t.fecha)) return t.fecha.slice(0,10);
+  return '';
+};
+
+/* ─── Gráfica de barras SVG pura ─── */
+const BarChart = ({ data, title, subtitle, colorFin, colorCanc, height = 200 }) => {
+  if (!data || data.length === 0) return (
+    <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height, color:'rgba(255,255,255,0.2)', fontSize:'0.85rem' }}>
+      Sin datos en el período
+    </div>
+  );
+
+  const maxVal  = Math.max(...data.map(d => d.total), 1);
+  const N       = data.length;
+  const BAR_W   = 32;
+  const GAP     = 16;
+  const PAD_L   = 52;
+  const PAD_R   = 16;
+  const PAD_T   = 24;          // espacio superior para que el número más alto no se corte
+  const LABEL_H = 28;
+  const chartH  = height;
+  const chartW  = PAD_L + N * (BAR_W + GAP) - GAP + PAD_R;
+  const SVG_H   = PAD_T + chartH + LABEL_H;
+
+  const yTicks = [0.25, 0.5, 0.75, 1.0];
+
+  return (
+    <div className="card" style={{ padding: '1.5rem' }}>
+      <div style={{ display:'flex', alignItems:'center', gap:'0.5rem', marginBottom:'0.4rem' }}>
+        <BarChart3 size={18} style={{ color:'#a78bfa' }} />
+        <h3 style={{ fontSize:'1rem', fontWeight:700 }}>{title}</h3>
+      </div>
+      <p style={{ fontSize:'0.78rem', color:'rgba(255,255,255,0.35)', marginBottom:'1.25rem' }}>{subtitle}</p>
+
+      <div style={{ overflowX:'auto' }}>
+        <svg width={chartW} height={SVG_H} style={{ display:'block' }}>
+
+          {/* Líneas de cuadrícula + etiquetas Y — todas desplazadas PAD_T hacia abajo */}
+          {yTicks.map(f => {
+            const y = PAD_T + chartH * (1 - f);
+            return (
+              <g key={f}>
+                <line x1={PAD_L} y1={y} x2={chartW - PAD_R} y2={y}
+                  stroke="rgba(255,255,255,0.07)" strokeWidth="1" strokeDasharray="4,4" />
+                <text x={PAD_L - 6} y={y + 4} textAnchor="end"
+                  fontSize="11" fill="rgba(255,255,255,0.75)" fontWeight="600">
+                  {Math.round(maxVal * f)}
+                </text>
+              </g>
+            );
+          })}
+
+          {/* Línea base */}
+          <line x1={PAD_L} y1={PAD_T + chartH} x2={chartW - PAD_R} y2={PAD_T + chartH}
+            stroke="rgba(255,255,255,0.15)" strokeWidth="1" />
+
+          {/* Barras */}
+          {data.map((d, i) => {
+            const x    = PAD_L + i * (BAR_W + GAP);
+            const base = PAD_T + chartH;
+
+            const hFin  = d.finalizados > 0 ? Math.max(6, (d.finalizados / maxVal) * (chartH - 12)) : 0;
+            const hCanc = d.cancelados  > 0 ? Math.max(4, (d.cancelados  / maxVal) * (chartH - 12)) : 0;
+            const resto = d.total - d.finalizados - d.cancelados;
+            const hRest = resto > 0          ? Math.max(4, (resto         / maxVal) * (chartH - 12)) : 0;
+            const totalH = hFin + hCanc + hRest;
+
+            return (
+              <g key={i}>
+                {hRest > 0 && <rect x={x} y={base - totalH}        width={BAR_W} height={hRest} fill="rgba(124,58,237,0.45)" rx="4" />}
+                {hCanc > 0 && <rect x={x} y={base - hFin - hCanc}  width={BAR_W} height={hCanc} fill={colorCanc || '#f87171'} fillOpacity="0.85" rx="3" />}
+                {hFin  > 0 && <rect x={x} y={base - hFin}          width={BAR_W} height={hFin}  fill={colorFin  || '#34d399'} rx="3" />}
+                {d.total === 0 && <rect x={x} y={base - 3} width={BAR_W} height={3} fill="rgba(255,255,255,0.08)" rx="2" />}
+
+                {/* Número encima de la barra */}
+                {d.total > 0 && (
+                  <text x={x + BAR_W/2} y={base - totalH - 7}
+                    textAnchor="middle" fontSize="12" fill="white" fontWeight="700">
+                    {d.total}
+                  </text>
+                )}
+
+                {/* Etiqueta eje X */}
+                <text x={x + BAR_W/2} y={base + 18}
+                  textAnchor="middle" fontSize="11" fill="rgba(255,255,255,0.6)" fontWeight="500">
+                  {d.label}
+                </text>
+              </g>
+            );
+          })}
+        </svg>
+      </div>
+
+      {/* Leyenda */}
+      <div style={{ display:'flex', gap:'1.25rem', marginTop:'0.875rem', flexWrap:'wrap' }}>
+        {[
+          { color: colorFin  || '#34d399',         label: 'Finalizados' },
+          { color: colorCanc || '#f87171',         label: 'Cancelados'  },
+          { color: 'rgba(124,58,237,0.7)',          label: 'Otros'       },
+        ].map(l => (
+          <div key={l.label} style={{ display:'flex', alignItems:'center', gap:'0.35rem' }}>
+            <div style={{ width:'12px', height:'12px', borderRadius:'3px', background:l.color }} />
+            <span style={{ fontSize:'0.73rem', color:'rgba(255,255,255,0.5)' }}>{l.label}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+/* ─── Gráfica de dona SVG pura ─── */
+const DonutChart = ({ data, title, subtitle }) => {
+  if (!data || data.length === 0 || data.every(d => d.value === 0)) return (
+    <div className="card" style={{ padding:'1.5rem' }}>
+      <div style={{ display:'flex', alignItems:'center', gap:'0.5rem', marginBottom:'0.4rem' }}>
+        <TrendingUp size={18} style={{ color:'#a78bfa' }} />
+        <h3 style={{ fontSize:'1rem', fontWeight:700 }}>{title}</h3>
+      </div>
+      <p style={{ fontSize:'0.78rem', color:'rgba(255,255,255,0.35)', marginBottom:'1rem' }}>{subtitle}</p>
+      <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:180, color:'rgba(255,255,255,0.2)', fontSize:'0.85rem' }}>Sin datos</div>
+    </div>
+  );
+
+  const total = data.reduce((s,d) => s + d.value, 0) || 1;
+  const r = 70, cx = 90, cy = 90, strokeW = 22;
+  const circ = 2 * Math.PI * r;
+  let offset = 0;
+
+  return (
+    <div className="card" style={{ padding:'1.5rem' }}>
+      <div style={{ display:'flex', alignItems:'center', gap:'0.5rem', marginBottom:'0.4rem' }}>
+        <TrendingUp size={18} style={{ color:'#a78bfa' }} />
+        <h3 style={{ fontSize:'1rem', fontWeight:700 }}>{title}</h3>
+      </div>
+      <p style={{ fontSize:'0.78rem', color:'rgba(255,255,255,0.35)', marginBottom:'1rem' }}>{subtitle}</p>
+
+      <div style={{ display:'flex', alignItems:'center', gap:'1.5rem', flexWrap:'wrap' }}>
+        <svg width={180} height={180} style={{ flexShrink:0 }}>
+          <circle cx={cx} cy={cy} r={r} fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth={strokeW} />
+          {data.map((d, i) => {
+            const dash = (d.value / total) * circ;
+            const el = (
+              <circle key={i} cx={cx} cy={cy} r={r} fill="none"
+                stroke={d.color} strokeWidth={strokeW}
+                strokeDasharray={`${dash} ${circ - dash}`}
+                strokeDashoffset={-offset + circ * 0.25}
+                strokeLinecap="round"
+                style={{ transition:'stroke-dasharray 0.6s ease' }}
+              />
+            );
+            offset += dash;
+            return el;
+          })}
+          <text x={cx} y={cy - 8} textAnchor="middle" fontSize="26" fontWeight="800" fill="white">{total}</text>
+          <text x={cx} y={cy + 14} textAnchor="middle" fontSize="11" fill="rgba(255,255,255,0.4)">turnos</text>
+        </svg>
+
+        <div style={{ display:'flex', flexDirection:'column', gap:'0.65rem', flex:1 }}>
+          {data.map(d => (
+            <div key={d.label} style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:'0.75rem' }}>
+              <div style={{ display:'flex', alignItems:'center', gap:'0.4rem' }}>
+                <div style={{ width:'8px', height:'8px', borderRadius:'50%', background:d.color, flexShrink:0 }} />
+                <span style={{ fontSize:'0.78rem', color:'rgba(255,255,255,0.6)' }}>{d.label}</span>
+              </div>
+              <div style={{ display:'flex', alignItems:'center', gap:'0.4rem' }}>
+                <span style={{ fontSize:'0.85rem', fontWeight:700, color:'white' }}>{d.value}</span>
+                <span style={{ fontSize:'0.7rem', color:'rgba(255,255,255,0.3)' }}>{Math.round(d.value/total*100)}%</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
 };
 
 const Reportes = () => {
@@ -30,18 +214,20 @@ const Reportes = () => {
   const [filterEstado, setFilterEstado] = useState('');
   const [tramites, setTramites] = useState([]);
   const [filterTramite, setFilterTramite] = useState('');
+  const [todosLosTurnos, setTodosLosTurnos] = useState([]); // todos para gráficas
 
   const [resumen, setResumen] = useState(null);
   const [detalles, setDetalles] = useState([]);
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
+  const [vistaGraficas, setVistaGraficas] = useState('semanal'); // semanal | mensual | anual
 
   const printRef = useRef();
 
   useEffect(() => {
-    // Cargar trámites para el filtro
     api.get('/tramites').then(res => setTramites(res.data || [])).catch(() => {});
-    // Auto-cargar con hoy
+    // Cargar TODOS los turnos para gráficas globales
+    api.get('/turnos').then(res => setTodosLosTurnos(res.data || [])).catch(() => {});
     handleBuscar();
   }, []);
 
@@ -71,9 +257,89 @@ const Reportes = () => {
     return matchBuscar && matchEstado;
   });
 
-  const handlePrint = () => {
-    window.print();
+  const handlePrint = () => { window.print(); };
+
+  /* ─── Procesar datos para gráficas ─── */
+  const procesarSemanal = () => {
+    const dias = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
+    const hoy = new Date();
+    const resultado = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(hoy); d.setDate(hoy.getDate() - i);
+      const iso = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+      const turnos = todosLosTurnos.filter(t => normFecha(t) === iso);
+      resultado.push({
+        label: dias[d.getDay()],
+        total: turnos.length,
+        finalizados: turnos.filter(t => t.estado === 'FINALIZADO').length,
+        cancelados:  turnos.filter(t => t.estado === 'CANCELADO').length,
+      });
+    }
+    return resultado;
   };
+
+  const procesarMensual = () => {
+    const hoy = new Date();
+    const resultado = [];
+    for (let i = 11; i >= 0; i--) {
+      const d = new Date(hoy.getFullYear(), hoy.getMonth() - i, 1);
+      const mes = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+      const turnos = todosLosTurnos.filter(t => {
+        const f = normFecha(t); return f && f.startsWith(mes);
+      });
+      resultado.push({
+        label: d.toLocaleDateString('es-ES', { month: 'short' }),
+        total: turnos.length,
+        finalizados: turnos.filter(t => t.estado === 'FINALIZADO').length,
+        cancelados:  turnos.filter(t => t.estado === 'CANCELADO').length,
+      });
+    }
+    return resultado;
+  };
+
+  const procesarAnual = () => {
+    const hoy = new Date();
+    const resultado = [];
+    for (let i = 4; i >= 0; i--) {
+      const anio = hoy.getFullYear() - i;
+      const turnos = todosLosTurnos.filter(t => {
+        const f = normFecha(t); return f && f.startsWith(String(anio));
+      });
+      resultado.push({
+        label: String(anio),
+        total: turnos.length,
+        finalizados: turnos.filter(t => t.estado === 'FINALIZADO').length,
+        cancelados:  turnos.filter(t => t.estado === 'CANCELADO').length,
+      });
+    }
+    return resultado;
+  };
+
+  const procesarDonutEstados = (fuente) => [
+    { label: 'Finalizados',  value: fuente.filter(t => t.estado === 'FINALIZADO').length,  color: '#34d399' },
+    { label: 'Cancelados',   value: fuente.filter(t => t.estado === 'CANCELADO').length,   color: '#f87171' },
+    { label: 'En Espera',    value: fuente.filter(t => t.estado === 'ESPERA').length,       color: '#a78bfa' },
+    { label: 'Atendiendo',   value: fuente.filter(t => t.estado === 'ATENDIENDO').length,   color: '#38bdf8' },
+  ];
+
+  const procesarDonutTramites = (fuente) => {
+    const mapa = {};
+    fuente.forEach(t => {
+      const nombre = t.tramite?.nombre || 'Otro';
+      mapa[nombre] = (mapa[nombre] || 0) + 1;
+    });
+    const colores = ['#a78bfa','#34d399','#fbbf24','#38bdf8','#f472b6','#fb923c'];
+    return Object.entries(mapa).sort((a,b)=>b[1]-a[1]).slice(0,6).map(([k,v],i) => ({ label:k, value:v, color:colores[i%colores.length] }));
+  };
+
+  const dataSemanal  = procesarSemanal();
+  const dataMensual  = procesarMensual();
+  const dataAnual    = procesarAnual();
+  const fuenteActual = vistaGraficas === 'semanal'
+    ? todosLosTurnos.filter(t => { const f=normFecha(t); const hoy=new Date(); const d7=new Date(hoy); d7.setDate(hoy.getDate()-7); return f >= `${d7.getFullYear()}-${String(d7.getMonth()+1).padStart(2,'0')}-${String(d7.getDate()).padStart(2,'0')}`; })
+    : vistaGraficas === 'mensual'
+    ? todosLosTurnos.filter(t => { const f=normFecha(t); const hoy=new Date(); return f && f.startsWith(`${hoy.getFullYear()}-`); })
+    : todosLosTurnos;
 
   return (
     <div style={{ fontFamily: "'Inter', sans-serif" }}>
@@ -125,16 +391,16 @@ const Reportes = () => {
           </div>
           <div className="form-group" style={{ marginBottom: 0 }}>
             <label style={{ fontWeight: 600, fontSize: '0.83rem' }}>Trámite</label>
-            <select
+            <DarkSelect
               value={filterTramite}
-              onChange={(e) => setFilterTramite(e.target.value)}
-              style={{ marginTop: '0.35rem', borderRadius: '8px', height: '38px' }}
-            >
-              <option value="">Todos los trámites</option>
-              {tramites.map(t => (
-                <option key={t._id} value={t._id}>{t.nombre}</option>
-              ))}
-            </select>
+              onChange={setFilterTramite}
+              options={[
+                { value: '', label: 'Todos los trámites' },
+                ...tramites.map(t => ({ value: t._id, label: t.nombre }))
+              ]}
+              placeholder="Todos los trámites"
+              style={{ marginTop: '0.35rem' }}
+            />
           </div>
           <div style={{ marginBottom: 0 }}>
             <button
@@ -205,117 +471,70 @@ const Reportes = () => {
               </div>
             </div>
           </div>
+        </div>
+      )}
 
-          {/* Second-level filter (local) */}
-          <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.25rem', flexWrap: 'wrap' }}>
-            <div style={{ position: 'relative', flex: '1', minWidth: '200px' }}>
-              <Search size={16} style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-              <input
-                type="text"
-                placeholder="Buscar por código de turno..."
-                value={buscar}
-                onChange={(e) => setBuscar(e.target.value)}
-                style={{ paddingLeft: '2.25rem', borderRadius: '8px' }}
-              />
+      {/* ── SECCIÓN DE GRÁFICAS (siempre visible con datos disponibles) ── */}
+      {todosLosTurnos.length > 0 && (
+        <div style={{ marginTop: '1.5rem' }}>
+
+          {/* Selector de vista */}
+          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'1.25rem', flexWrap:'wrap', gap:'0.75rem' }}>
+            <div style={{ display:'flex', alignItems:'center', gap:'0.5rem' }}>
+              <Calendar size={18} style={{ color:'#a78bfa' }} />
+              <h2 style={{ fontSize:'1.1rem', fontWeight:700 }}>Análisis Gráfico de Turnos</h2>
             </div>
-            <select
-              value={filterEstado}
-              onChange={(e) => setFilterEstado(e.target.value)}
-              style={{ borderRadius: '8px', height: '38px', minWidth: '170px', border: '1px solid var(--border)', padding: '0 0.75rem', fontSize: '0.875rem' }}
-            >
-              <option value="">Todos los estados</option>
-              <option value="ESPERA">En Espera</option>
-              <option value="ATENDIENDO">Atendiendo</option>
-              <option value="FINALIZADO">Finalizado</option>
-              <option value="CANCELADO">Cancelado</option>
-              <option value="PAUSADO">Pausado</option>
-            </select>
-            <div style={{ display: 'flex', alignItems: 'center', color: 'var(--text-muted)', fontSize: '0.85rem', fontWeight: 600, gap: '0.35rem' }}>
-              <FileText size={15} />
-              {filteredDetalles.length} registro(s) mostrados
+            <div style={{ display:'flex', gap:'0.35rem', background:'rgba(255,255,255,0.04)', border:'1px solid rgba(124,58,237,0.18)', padding:'0.25rem', borderRadius:'10px' }}>
+              {[['semanal','Semanal'],['mensual','Mensual'],['anual','Anual']].map(([v,l]) => (
+                <button key={v} onClick={() => setVistaGraficas(v)} style={{
+                  padding:'0.45rem 1rem', borderRadius:'8px', border:'none', cursor:'pointer',
+                  fontFamily:'inherit', fontSize:'0.82rem', fontWeight:600, transition:'all 0.2s',
+                  background: vistaGraficas === v ? 'linear-gradient(135deg,#7c3aed,#6d28d9)' : 'transparent',
+                  color: vistaGraficas === v ? 'white' : 'rgba(255,255,255,0.4)',
+                  boxShadow: vistaGraficas === v ? '0 3px 12px rgba(124,58,237,0.4)' : 'none',
+                }}>{l}</button>
+              ))}
             </div>
           </div>
 
-          {/* Detail Table */}
-          <div className="table-container" style={{ border: '1px solid var(--border)', boxShadow: 'var(--shadow)' }}>
-            <table>
-              <thead>
-                <tr>
-                  <th>Código</th>
-                  <th>Trámite</th>
-                  <th>Prioridad</th>
-                  <th>Estado</th>
-                  <th>Atendido por</th>
-                  <th>Ventanilla</th>
-                  <th>Fecha / Hora</th>
-                  <th>T. Espera</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredDetalles.length === 0 ? (
-                  <tr>
-                    <td colSpan="8" style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>
-                      <AlertTriangle size={36} style={{ color: '#cbd5e1', marginBottom: '0.75rem', display: 'block', margin: '0 auto' }} />
-                      <span>No se encontraron registros con los filtros seleccionados.</span>
-                    </td>
-                  </tr>
-                ) : (
-                  filteredDetalles.map((t) => (
-                    <tr key={t._id}>
-                      <td>
-                        <code style={{
-                          background: 'rgba(37,99,235,0.1)',
-                          color: 'var(--primary)',
-                          padding: '3px 8px',
-                          borderRadius: '6px',
-                          fontWeight: 700,
-                          fontSize: '0.9rem'
-                        }}>
-                          {t.codigoTurno}
-                        </code>
-                      </td>
-                      <td>
-                        <strong style={{ fontSize: '0.9rem' }}>{t.tramite?.nombre || '—'}</strong>
-                      </td>
-                      <td>
-                        <span className={`badge ${t.prioridad === 'PRIORITARIO' ? 'badge-danger' : 'badge-primary'}`}>
-                          {t.prioridad}
-                        </span>
-                        {t.motivoPrioridad && (
-                          <div style={{ fontSize: '0.73rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-                            {t.motivoPrioridad}
-                          </div>
-                        )}
-                      </td>
-                      <td>
-                        <span className={`badge ${estadoBadge[t.estado]?.cls || 'badge-primary'}`}>
-                          {estadoBadge[t.estado]?.label || t.estado}
-                        </span>
-                      </td>
-                      <td style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                        {t.usuarioAtencion
-                          ? `${t.usuarioAtencion.nombre} ${t.usuarioAtencion.apellido}`
-                          : <span style={{ fontStyle: 'italic' }}>No asignado</span>
-                        }
-                      </td>
-                      <td style={{ fontSize: '0.85rem' }}>
-                        {t.ventanilla
-                          ? <span style={{ fontWeight: 600 }}>Vent. {t.ventanilla}</span>
-                          : <span style={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>—</span>
-                        }
-                      </td>
-                      <td style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                        <div>{t.fecha}</div>
-                        <div style={{ fontWeight: 600, color: 'var(--text-main)' }}>{t.hora}</div>
-                      </td>
-                      <td style={{ fontSize: '0.85rem', fontWeight: 600 }}>
-                        {formatSegundos(t.tiempoEspera)}
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+          {/* Fila 1: Barra principal según vista */}
+          <div style={{ marginBottom:'1.25rem' }}>
+            {vistaGraficas === 'semanal' && (
+              <BarChart data={dataSemanal} title="Turnos de los Últimos 7 Días" subtitle="Distribución diaria de todos los turnos emitidos" colorFin="#34d399" colorCanc="#f87171" height={200} />
+            )}
+            {vistaGraficas === 'mensual' && (
+              <BarChart data={dataMensual} title="Turnos por Mes — Últimos 12 Meses" subtitle="Evolución mensual del volumen de atención" colorFin="#38bdf8" colorCanc="#f87171" height={200} />
+            )}
+            {vistaGraficas === 'anual' && (
+              <BarChart data={dataAnual} title="Turnos por Año — Últimos 5 Años" subtitle="Tendencia anual histórica de turnos emitidos" colorFin="#a78bfa" colorCanc="#f87171" height={200} />
+            )}
+          </div>
+
+          {/* Fila 2: Dos donas */}
+          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'1.25rem', marginBottom:'1.25rem' }}>
+            <DonutChart
+              data={procesarDonutEstados(fuenteActual)}
+              title="Distribución por Estado"
+              subtitle={`Período ${vistaGraficas}`}
+            />
+            <DonutChart
+              data={procesarDonutTramites(fuenteActual)}
+              title="Top Trámites Solicitados"
+              subtitle={`Período ${vistaGraficas}`}
+            />
+          </div>
+
+          {/* Fila 3: Las otras dos barras */}
+          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'1.25rem' }}>
+            {vistaGraficas !== 'semanal' && (
+              <BarChart data={dataSemanal} title="Últimos 7 Días" subtitle="Vista rápida semanal" colorFin="#34d399" colorCanc="#f87171" height={160} />
+            )}
+            {vistaGraficas !== 'mensual' && (
+              <BarChart data={dataMensual} title="Últimos 12 Meses" subtitle="Evolución mensual" colorFin="#38bdf8" colorCanc="#f87171" height={160} />
+            )}
+            {vistaGraficas !== 'anual' && (
+              <BarChart data={dataAnual} title="Últimos 5 Años" subtitle="Tendencia anual" colorFin="#a78bfa" colorCanc="#f87171" height={160} />
+            )}
           </div>
         </div>
       )}
@@ -323,7 +542,7 @@ const Reportes = () => {
       {/* Empty state before search */}
       {!searched && (
         <div className="card" style={{ textAlign: 'center', padding: '4rem', color: 'var(--text-muted)' }}>
-          <CalendarRange size={52} style={{ color: '#cbd5e1', marginBottom: '1rem' }} />
+          <CalendarRange size={52} style={{ color: 'rgba(255,255,255,0.12)', marginBottom: '1rem' }} />
           <h3 style={{ fontWeight: 700, marginBottom: '0.5rem', color: 'var(--text-main)' }}>Genera tu primer reporte</h3>
           <p>Selecciona un rango de fechas y presiona <strong>"Generar Reporte"</strong> para ver el historial de turnos.</p>
         </div>

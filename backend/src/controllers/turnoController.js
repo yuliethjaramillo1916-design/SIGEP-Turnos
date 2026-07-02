@@ -1,5 +1,6 @@
 const Turno = require('../models/Turno');
 const Tramite = require('../models/Tramite');
+const Configuracion = require('../models/Configuracion');
 const socketService = require('../services/socketService');
 
 // Helper para obtener fecha y hora actual en la zona local del usuario
@@ -20,7 +21,7 @@ const getLocalDateString = () => {
 exports.getTurnos = async (req, res) => {
     try {
         const { estado, tramite, prioridad, buscar } = req.query;
-        let query = {};
+        let query = { entidadId: req.user.entidadId };
 
         if (estado) query.estado = estado;
         if (tramite) query.tramite = tramite;
@@ -46,6 +47,7 @@ exports.getTurnos = async (req, res) => {
 // @route   GET /api/turnos/publico
 // @access  Público
 exports.getTurnosPublico = async (req, res) => {
+    // SIN CAMBIOS por petición del usuario: "No continúes con Socket.io ni Pantalla Pública."
     try {
         const { fecha } = getLocalDateString();
         
@@ -79,12 +81,12 @@ exports.getTurnosPublico = async (req, res) => {
 // @access  Privado
 exports.getTurnoById = async (req, res) => {
     try {
-        const turno = await Turno.findById(req.params.id)
+        const turno = await Turno.findOne({ _id: req.params.id, entidadId: req.user.entidadId })
             .populate('tramite')
             .populate('usuarioAtencion', 'nombre apellido');
             
         if (!turno) {
-            return res.status(404).json({ message: 'Turno no encontrado' });
+            return res.status(404).json({ message: 'Turno no encontrado o no tiene permisos' });
         }
         res.status(200).json(turno);
     } catch (error) {
@@ -103,6 +105,27 @@ exports.createTurno = async (req, res) => {
             return res.status(400).json({ message: 'El trámite es obligatorio' });
         }
 
+        // ── Verificar límite diario de turnos ──────────────────────────
+        const config = await Configuracion.findOne({ entidadId: req.user.entidadId });
+
+        if (config) {
+            // Verificar si el sistema está activo
+            if (config.activo === false) {
+                return res.status(403).json({ message: 'El sistema de turnos está suspendido. Contacte al administrador.' });
+            }
+
+            // Verificar límite de turnos del día
+            const { fecha: fechaHoy } = getLocalDateString();
+            const totalHoy = await Turno.countDocuments({ fecha: fechaHoy, entidadId: req.user.entidadId });
+
+            if (config.limite_turnos_dia && totalHoy >= config.limite_turnos_dia) {
+                return res.status(429).json({
+                    message: `Se alcanzó el límite diario de ${config.limite_turnos_dia} turnos. No se pueden emitir más tickets por hoy.`
+                });
+            }
+        }
+        // ──────────────────────────────────────────────────────────────
+
         let tramite;
         let finalTramiteId = tramiteId;
 
@@ -113,7 +136,8 @@ exports.createTurno = async (req, res) => {
             const nombreNormalizado = nombreTramitePersonalizado.trim();
             // Buscar si ya existe un tramite con ese nombre exacto (insensible a mayúsculas/minúsculas)
             let tramiteExistente = await Tramite.findOne({
-                nombre: { $regex: new RegExp(`^${nombreNormalizado.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&')}$`, 'i') }
+                nombre: { $regex: new RegExp(`^${nombreNormalizado.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&')}$`, 'i') },
+                entidadId: req.user.entidadId
             });
 
             if (!tramiteExistente) {
@@ -122,16 +146,17 @@ exports.createTurno = async (req, res) => {
                     nombre: nombreNormalizado,
                     descripcion: 'Trámite ad-hoc registrado por el Vigilante',
                     tiempoEstimado: 15,
-                    estado: false
+                    estado: false,
+                    entidadId: req.user.entidadId
                 });
                 await tramiteExistente.save();
             }
             tramite = tramiteExistente;
             finalTramiteId = tramite._id;
         } else {
-            tramite = await Tramite.findById(tramiteId);
+            tramite = await Tramite.findOne({ _id: tramiteId, entidadId: req.user.entidadId });
             if (!tramite) {
-                return res.status(404).json({ message: 'El trámite seleccionado no existe' });
+                return res.status(404).json({ message: 'El trámite seleccionado no existe o no tiene permisos' });
             }
         }
 
@@ -144,7 +169,8 @@ exports.createTurno = async (req, res) => {
         // Contar cuántos turnos se han creado hoy para este prefijo
         const countHoy = await Turno.countDocuments({
             fecha: fecha,
-            codigoTurno: { $regex: `^${prefijo}-` }
+            codigoTurno: { $regex: `^${prefijo}-` },
+            entidadId: req.user.entidadId
         });
 
         const consecutivo = String(countHoy + 1).padStart(3, '0');
@@ -157,7 +183,8 @@ exports.createTurno = async (req, res) => {
             prioridad: prioridad || 'NORMAL',
             motivoPrioridad: prioridad === 'PRIORITARIO' ? motivoPrioridad : null,
             fecha,
-            hora
+            hora,
+            entidadId: req.user.entidadId
         });
 
         const turnoGuardado = await nuevoTurno.save();
@@ -189,7 +216,8 @@ exports.llamarSiguiente = async (req, res) => {
         // 1. Si el operador ya tiene un turno "ATENDIENDO", finalizarlo automáticamente
         const turnoActivoPrevio = await Turno.findOne({
             usuarioAtencion: req.user._id,
-            estado: 'ATENDIENDO'
+            estado: 'ATENDIENDO',
+            entidadId: req.user.entidadId
         });
 
         if (turnoActivoPrevio) {
@@ -203,14 +231,16 @@ exports.llamarSiguiente = async (req, res) => {
         let siguienteTurno = await Turno.findOne({
             fecha: fecha,
             estado: 'ESPERA',
-            prioridad: 'PRIORITARIO'
+            prioridad: 'PRIORITARIO',
+            entidadId: req.user.entidadId
         }).populate('tramite').sort({ createdAt: 1 });
 
         if (!siguienteTurno) {
             siguienteTurno = await Turno.findOne({
                 fecha: fecha,
                 estado: 'ESPERA',
-                prioridad: 'NORMAL'
+                prioridad: 'NORMAL',
+                entidadId: req.user.entidadId
             }).populate('tramite').sort({ createdAt: 1 });
         }
 
@@ -250,9 +280,9 @@ exports.llamarSiguiente = async (req, res) => {
 // @access  Privado (OPERADOR, ADMINISTRADOR)
 exports.finalizarTurno = async (req, res) => {
     try {
-        const turno = await Turno.findById(req.params.id);
+        const turno = await Turno.findOne({ _id: req.params.id, entidadId: req.user.entidadId });
         if (!turno) {
-            return res.status(404).json({ message: 'Turno no encontrado' });
+            return res.status(404).json({ message: 'Turno no encontrado o sin permisos' });
         }
 
         if (turno.estado !== 'ATENDIENDO' && turno.estado !== 'PAUSADO') {
@@ -278,9 +308,9 @@ exports.finalizarTurno = async (req, res) => {
 // @access  Privado (OPERADOR, ADMINISTRADOR)
 exports.pausarTurno = async (req, res) => {
     try {
-        const turno = await Turno.findById(req.params.id);
+        const turno = await Turno.findOne({ _id: req.params.id, entidadId: req.user.entidadId });
         if (!turno) {
-            return res.status(404).json({ message: 'Turno no encontrado' });
+            return res.status(404).json({ message: 'Turno no encontrado o sin permisos' });
         }
 
         if (turno.estado !== 'ATENDIENDO') {
@@ -306,9 +336,9 @@ exports.pausarTurno = async (req, res) => {
 // @access  Privado (OPERADOR, ADMINISTRADOR)
 exports.reanudarTurno = async (req, res) => {
     try {
-        const turno = await Turno.findById(req.params.id);
+        const turno = await Turno.findOne({ _id: req.params.id, entidadId: req.user.entidadId });
         if (!turno) {
-            return res.status(404).json({ message: 'Turno no encontrado' });
+            return res.status(404).json({ message: 'Turno no encontrado o sin permisos' });
         }
 
         if (turno.estado !== 'PAUSADO') {
@@ -318,7 +348,8 @@ exports.reanudarTurno = async (req, res) => {
         // Finalizar cualquier otro turno que esté en atención de este operador
         const turnoActivoPrevio = await Turno.findOne({
             usuarioAtencion: req.user._id,
-            estado: 'ATENDIENDO'
+            estado: 'ATENDIENDO',
+            entidadId: req.user.entidadId
         });
 
         if (turnoActivoPrevio) {
@@ -346,9 +377,9 @@ exports.reanudarTurno = async (req, res) => {
 // @access  Privado
 exports.cancelarTurno = async (req, res) => {
     try {
-        const turno = await Turno.findById(req.params.id);
+        const turno = await Turno.findOne({ _id: req.params.id, entidadId: req.user.entidadId });
         if (!turno) {
-            return res.status(404).json({ message: 'Turno no encontrado' });
+            return res.status(404).json({ message: 'Turno no encontrado o sin permisos' });
         }
 
         turno.estado = 'CANCELADO';
@@ -376,14 +407,14 @@ exports.transferirTurno = async (req, res) => {
             return res.status(400).json({ message: 'El nuevo trámite es obligatorio' });
         }
 
-        const nuevoTramite = await Tramite.findById(nuevoTramiteId);
+        const nuevoTramite = await Tramite.findOne({ _id: nuevoTramiteId, entidadId: req.user.entidadId });
         if (!nuevoTramite) {
-            return res.status(404).json({ message: 'El trámite de destino no existe' });
+            return res.status(404).json({ message: 'El trámite de destino no existe o sin permisos' });
         }
 
-        const turno = await Turno.findById(req.params.id);
+        const turno = await Turno.findOne({ _id: req.params.id, entidadId: req.user.entidadId });
         if (!turno) {
-            return res.status(404).json({ message: 'Turno no encontrado' });
+            return res.status(404).json({ message: 'Turno no encontrado o sin permisos' });
         }
 
         // Actualizar el turno para volver a ponerlo en fila de espera para el nuevo trámite
@@ -410,12 +441,14 @@ exports.transferirTurno = async (req, res) => {
 // @access  Privado (ADMINISTRADOR)
 exports.updateTurno = async (req, res) => {
     try {
-        const turnoActualizado = await Turno.findByIdAndUpdate(req.params.id, req.body, { new: true })
-            .populate('tramite')
-            .populate('usuarioAtencion', 'nombre apellido');
+        const turnoActualizado = await Turno.findOneAndUpdate(
+            { _id: req.params.id, entidadId: req.user.entidadId },
+            req.body,
+            { new: true }
+        ).populate('tramite').populate('usuarioAtencion', 'nombre apellido');
 
         if (!turnoActualizado) {
-            return res.status(404).json({ message: 'Turno no encontrado' });
+            return res.status(404).json({ message: 'Turno no encontrado o sin permisos' });
         }
 
         socketService.emitTurnoActualizado(turnoActualizado);
@@ -425,14 +458,51 @@ exports.updateTurno = async (req, res) => {
     }
 };
 
+// @desc    Eliminar todos los turnos de una fecha específica (Admin)
+// @route   DELETE /api/turnos/por-fecha/:fecha
+// @access  Privado (ADMINISTRADOR)
+exports.deleteTurnosPorFecha = async (req, res) => {
+    try {
+        const { fecha } = req.params; // formato YYYY-MM-DD
+
+        if (!fecha || !/^\d{4}-\d{2}-\d{2}$/.test(fecha)) {
+            return res.status(400).json({ message: 'Formato de fecha inválido. Use YYYY-MM-DD' });
+        }
+
+        // Buscar turnos cuyo campo "fecha" coincida, o cuyo createdAt caiga en ese día
+        const inicio = new Date(`${fecha}T00:00:00.000Z`);
+        const fin    = new Date(`${fecha}T23:59:59.999Z`);
+
+        const resultado = await Turno.deleteMany({
+            entidadId: req.user.entidadId,
+            $or: [
+                { fecha: fecha },
+                { createdAt: { $gte: inicio, $lte: fin } }
+            ]
+        });
+
+        if (socketService.getIO()) {
+            socketService.getIO().emit('cola_actualizada');
+        }
+
+        res.status(200).json({
+            message: `Se eliminaron ${resultado.deletedCount} turno(s) del ${fecha}`,
+            eliminados: resultado.deletedCount
+        });
+    } catch (error) {
+        console.error('Error al eliminar turnos por fecha:', error);
+        res.status(500).json({ message: error.message });
+    }
+};
+
 // @desc    Eliminar un turno (Admin)
 // @route   DELETE /api/turnos/:id
 // @access  Privado (ADMINISTRADOR)
 exports.deleteTurno = async (req, res) => {
     try {
-        const turnoEliminado = await Turno.findByIdAndDelete(req.params.id);
+        const turnoEliminado = await Turno.findOneAndDelete({ _id: req.params.id, entidadId: req.user.entidadId });
         if (!turnoEliminado) {
-            return res.status(404).json({ message: 'Turno no encontrado' });
+            return res.status(404).json({ message: 'Turno no encontrado o sin permisos' });
         }
 
         if (socketService.getIO()) {

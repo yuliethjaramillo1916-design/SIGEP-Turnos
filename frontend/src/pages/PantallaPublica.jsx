@@ -1,114 +1,108 @@
 import { useState, useEffect, useRef } from 'react';
 import { io } from 'socket.io-client';
 import api from '../services/api';
-import { Volume2, VolumeX, Tv, Play } from 'lucide-react';
+import { Volume2, VolumeX, Play, Zap, Users, Clock } from 'lucide-react';
+
+/* ── Calendario vectorial SVG ── */
+const CalendarIcon = ({ size = 24, color = 'white', style = {} }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
+    stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"
+    style={style}>
+    <rect x="3" y="4" width="18" height="18" rx="3" />
+    <line x1="3" y1="10" x2="21" y2="10" />
+    <line x1="8" y1="2" x2="8" y2="6" />
+    <line x1="16" y1="2" x2="16" y2="6" />
+    <circle cx="8"  cy="15" r="1" fill={color} stroke="none" />
+    <circle cx="12" cy="15" r="1" fill={color} stroke="none" />
+    <circle cx="16" cy="15" r="1" fill={color} stroke="none" />
+  </svg>
+);
 
 const PantallaPublica = () => {
-  const [currentTurno, setCurrentTurno] = useState(null);
-  const [espera, setEspera] = useState([]);
+  const [currentTurno, setCurrentTurno]   = useState(null);
+  const [espera, setEspera]               = useState([]);
   const [empresaNombre, setEmpresaNombre] = useState('SIGEP-TURNOS');
-  const [audioEnabled, setAudioEnabled] = useState(false);
+  const [audioEnabled, setAudioEnabled]   = useState(false);
   const [showAudioModal, setShowAudioModal] = useState(true);
-  const [blinking, setBlinking] = useState(false);
+  const [blinking, setBlinking]           = useState(false);
   const [socketConnected, setSocketConnected] = useState(false);
+  const [horaActual, setHoraActual]       = useState('');
 
-  // Refs — siempre tienen el valor actual, seguros dentro de closures de socket
-  const socketRef = useRef(null);
+  const socketRef          = useRef(null);
   const pollingIntervalRef = useRef(null);
-  const announcedRef = useRef(new Set());
-  const audioEnabledRef = useRef(false);
-  const currentTurnoRef = useRef(null);
+  const announcedRef       = useRef(new Set());
+  const audioEnabledRef    = useRef(false);
+  const currentTurnoRef    = useRef(null);
 
-  // Sincronizar refs con estado
   useEffect(() => { audioEnabledRef.current = audioEnabled; }, [audioEnabled]);
   useEffect(() => { currentTurnoRef.current = currentTurno; }, [currentTurno]);
 
-  // ─── Audio ────────────────────────────────────────────────────────────────
+  /* Reloj en tiempo real */
+  useEffect(() => {
+    const tick = () => {
+      const d = new Date();
+      setHoraActual(d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
+    };
+    tick();
+    const t = setInterval(tick, 1000);
+    return () => clearInterval(t);
+  }, []);
 
+  /* ── Audio ── */
   const playChime = () => {
     try {
       const AC = window.AudioContext || window.webkitAudioContext;
       if (!AC) return;
       const ctx = new AC();
-      const notas = [
-        { freq: 880, start: 0,   dur: 0.6 },
-        { freq: 659, start: 0.3, dur: 0.6 },
-        { freq: 523, start: 0.6, dur: 0.8 },
-      ];
-      notas.forEach(({ freq, start, dur }) => {
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        osc.connect(gain);
-        gain.connect(ctx.destination);
-        osc.frequency.setValueAtTime(freq, ctx.currentTime + start);
-        gain.gain.setValueAtTime(0.2, ctx.currentTime + start);
-        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + start + dur);
-        osc.start(ctx.currentTime + start);
-        osc.stop(ctx.currentTime + start + dur);
-      });
-    } catch (err) {
-      console.error('Error timbre:', err);
-    }
+      [{ freq: 880, start: 0, dur: 0.5 }, { freq: 1100, start: 0.25, dur: 0.5 }, { freq: 660, start: 0.5, dur: 0.8 }]
+        .forEach(({ freq, start, dur }) => {
+          const osc = ctx.createOscillator(); const gain = ctx.createGain();
+          osc.connect(gain); gain.connect(ctx.destination);
+          osc.frequency.setValueAtTime(freq, ctx.currentTime + start);
+          gain.gain.setValueAtTime(0.22, ctx.currentTime + start);
+          gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + start + dur);
+          osc.start(ctx.currentTime + start); osc.stop(ctx.currentTime + start + dur);
+        });
+    } catch {}
   };
 
   const speakTurno = (turno) => {
     try {
       window.speechSynthesis.cancel();
       const texto = `Turno ${turno.codigoTurno.split('').join(' ')}, favor acercarse a ${turno.ventanilla || 'la ventanilla asignada'}`;
-      const utterance = new SpeechSynthesisUtterance(texto);
-      utterance.lang = 'es-ES';
-      utterance.rate = 0.9;
-      utterance.pitch = 1.0;
-      utterance.volume = 1.0;
-
+      const utt = new SpeechSynthesisUtterance(texto);
+      utt.lang = 'es-ES'; utt.rate = 0.9; utt.pitch = 1.0; utt.volume = 1.0;
       const doSpeak = () => {
-        const voices = window.speechSynthesis.getVoices();
-        const voz = voices.find(v => v.lang.startsWith('es'));
-        if (voz) utterance.voice = voz;
-        window.speechSynthesis.speak(utterance);
+        const voz = window.speechSynthesis.getVoices().find(v => v.lang.startsWith('es'));
+        if (voz) utt.voice = voz;
+        window.speechSynthesis.speak(utt);
       };
-
-      if (window.speechSynthesis.getVoices().length > 0) {
-        doSpeak();
-      } else {
-        window.speechSynthesis.onvoiceschanged = () => {
-          doSpeak();
-          window.speechSynthesis.onvoiceschanged = null;
-        };
-      }
-    } catch (err) {
-      console.error('Error síntesis de voz:', err);
-    }
+      window.speechSynthesis.getVoices().length > 0
+        ? doSpeak()
+        : (window.speechSynthesis.onvoiceschanged = () => { doSpeak(); window.speechSynthesis.onvoiceschanged = null; });
+    } catch {}
   };
 
-  // Guardado en ref para que el listener del socket siempre llame la versión actualizada
   const anunciarTurnoRef = useRef(null);
   anunciarTurnoRef.current = (turno) => {
     if (!turno) return;
-
-    // Anti-duplicados
     const key = turno.codigoTurno;
     if (announcedRef.current.has(key)) return;
     announcedRef.current.add(key);
     setTimeout(() => announcedRef.current.delete(key), 30000);
-
-    // Parpadeo visual
     setBlinking(true);
-    setTimeout(() => setBlinking(false), 6000);
-
-    // Audio
+    setTimeout(() => setBlinking(false), 7000);
     if (!audioEnabledRef.current) return;
     playChime();
     setTimeout(() => speakTurno(turno), 1500);
   };
 
-  // ─── Datos ────────────────────────────────────────────────────────────────
-
+  /* ── Datos ── */
   const fetchConfig = async () => {
     try {
       const res = await api.get('/configuracion');
       if (res.data?.nombre_empresa) setEmpresaNombre(res.data.nombre_empresa);
-    } catch (_) {}
+    } catch {}
   };
 
   const fetchPublicStats = async () => {
@@ -116,8 +110,7 @@ const PantallaPublica = () => {
       const res = await api.get('/turnos/publico');
       const { enAtencion, enEspera } = res.data;
       setEspera(enEspera || []);
-
-      if (enAtencion && enAtencion.length > 0) {
+      if (enAtencion?.length > 0) {
         const next = enAtencion[0];
         if (currentTurnoRef.current?.codigoTurno !== next.codigoTurno) {
           setCurrentTurno(next);
@@ -126,325 +119,376 @@ const PantallaPublica = () => {
       } else {
         setCurrentTurno(null);
       }
-    } catch (err) {
-      console.error('Error polling público:', err);
-    }
+    } catch {}
   };
 
-  // ─── Socket ───────────────────────────────────────────────────────────────
-
   const startPolling = () => {
-    if (!pollingIntervalRef.current) {
+    if (!pollingIntervalRef.current)
       pollingIntervalRef.current = setInterval(fetchPublicStats, 4000);
-    }
   };
 
   const initSocket = () => {
     const socket = io('http://localhost:3000');
     socketRef.current = socket;
-
-    socket.on('connect', () => {
-      setSocketConnected(true);
-      if (pollingIntervalRef.current) {
-        clearInterval(pollingIntervalRef.current);
-        pollingIntervalRef.current = null;
-      }
-    });
-
-    socket.on('disconnect', () => { setSocketConnected(false); startPolling(); });
+    socket.on('connect',       () => { setSocketConnected(true); if (pollingIntervalRef.current) { clearInterval(pollingIntervalRef.current); pollingIntervalRef.current = null; } });
+    socket.on('disconnect',    () => { setSocketConnected(false); startPolling(); });
     socket.on('connect_error', () => { setSocketConnected(false); startPolling(); });
-
-    socket.on('turno_llamado', (turno) => {
-      console.log('⚡ turno_llamado:', turno);
-      setCurrentTurno(turno);
-      // Llamar via ref para tener siempre la versión actualizada de la función
-      anunciarTurnoRef.current(turno);
-      fetchPublicStats();
-    });
-
+    socket.on('turno_llamado', (turno) => { setCurrentTurno(turno); anunciarTurnoRef.current(turno); fetchPublicStats(); });
     socket.on('cola_actualizada', () => fetchPublicStats());
   };
 
   useEffect(() => {
-    fetchConfig();
-    fetchPublicStats();
-    initSocket();
-    return () => {
-      socketRef.current?.disconnect();
-      if (pollingIntervalRef.current) clearInterval(pollingIntervalRef.current);
-    };
+    fetchConfig(); fetchPublicStats(); initSocket();
+    return () => { socketRef.current?.disconnect(); if (pollingIntervalRef.current) clearInterval(pollingIntervalRef.current); };
   }, []);
 
-  // ─── Activar audio ────────────────────────────────────────────────────────
-
   const habilitarAudioYComenzar = () => {
-    setAudioEnabled(true);
-    audioEnabledRef.current = true;
-    setShowAudioModal(false);
-
-    // Desbloquear AudioContext con interacción del usuario
+    setAudioEnabled(true); audioEnabledRef.current = true; setShowAudioModal(false);
     playChime();
-    setTimeout(() => {
-      const test = new SpeechSynthesisUtterance('Sistema de llamados activado');
-      test.lang = 'es-ES';
-      window.speechSynthesis.speak(test);
-    }, 1000);
-
+    setTimeout(() => { const u = new SpeechSynthesisUtterance('Sistema de llamados activado'); u.lang = 'es-ES'; window.speechSynthesis.speak(u); }, 1000);
     fetchPublicStats();
   };
 
-  // ─── Render ───────────────────────────────────────────────────────────────
+  const esPrioritario = currentTurno?.prioridad === 'PRIORITARIO';
 
   return (
     <div style={{
-      background: '#0f172a',
-      minHeight: '100vh',
+      background: '#0f0e17',
+      minHeight: '100vh', height: '100vh',
       color: 'white',
       fontFamily: "'Inter', sans-serif",
-      display: 'flex',
-      flexDirection: 'column',
+      display: 'flex', flexDirection: 'column',
       overflow: 'hidden',
     }}>
 
-      {/* Modal de activación de audio */}
+      {/* ── Modal activar audio ── */}
       {showAudioModal && (
         <div style={{
-          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-          background: 'rgba(15, 23, 42, 0.95)',
-          zIndex: 1000,
+          position: 'fixed', inset: 0, zIndex: 1000,
+          background: 'rgba(10,9,20,0.95)',
           display: 'flex', justifyContent: 'center', alignItems: 'center',
-          padding: '2rem'
+          backdropFilter: 'blur(12px)',
         }}>
           <div style={{
-            background: '#1e293b', border: '1px solid #334155',
-            borderRadius: '24px', padding: '3rem', textAlign: 'center',
-            maxWidth: '500px', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)'
+            background: 'linear-gradient(135deg, #1a1830 0%, #1e1c35 100%)',
+            border: '1px solid rgba(124,58,237,0.3)',
+            borderRadius: '28px', padding: '3.5rem', textAlign: 'center',
+            maxWidth: '480px', width: '90%',
+            boxShadow: '0 40px 80px rgba(0,0,0,0.6), 0 0 60px rgba(124,58,237,0.15)',
           }}>
             <div style={{
               display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-              width: '72px', height: '72px',
-              background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-              borderRadius: '20px', color: 'white', marginBottom: '1.5rem',
+              width: '80px', height: '80px',
+              background: 'linear-gradient(135deg, #7c3aed, #a855f7)',
+              borderRadius: '22px', color: 'white', marginBottom: '1.75rem',
+              boxShadow: '0 12px 32px rgba(124,58,237,0.45)',
             }}>
-              <Volume2 size={36} />
+              <Volume2 size={38} />
             </div>
-            <h2 style={{ fontSize: '1.75rem', fontWeight: 800, marginBottom: '0.75rem' }}>
-              Pantalla de Visualización
+            <h2 style={{ fontSize: '1.75rem', fontWeight: 900, marginBottom: '0.75rem', letterSpacing: '-0.03em' }}>
+              Pantalla de Llamados
             </h2>
-            <p style={{ color: '#94a3b8', fontSize: '0.95rem', lineHeight: 1.5, marginBottom: '2.5rem' }}>
-              Para reproducir los sonidos de alerta y las llamadas automáticas por voz, necesitamos tu interacción inicial debido a las políticas de seguridad del navegador.
+            <p style={{ color: 'rgba(255,255,255,0.45)', fontSize: '0.9rem', lineHeight: 1.6, marginBottom: '2.5rem' }}>
+              Para reproducir alertas sonoras y llamados por voz, el navegador requiere una interacción inicial.
             </p>
-            <button
-              onClick={habilitarAudioYComenzar}
-              style={{
-                width: '100%', height: '52px',
-                background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                color: 'white', border: 'none', borderRadius: '14px',
-                fontWeight: 700, fontSize: '1.1rem', cursor: 'pointer',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.75rem',
-              }}
-            >
+            <button onClick={habilitarAudioYComenzar} style={{
+              width: '100%', height: '56px',
+              background: 'linear-gradient(135deg, #7c3aed, #6d28d9)',
+              color: 'white', border: 'none', borderRadius: '14px',
+              fontWeight: 700, fontSize: '1.1rem', cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.75rem',
+              boxShadow: '0 8px 28px rgba(124,58,237,0.5)',
+              fontFamily: 'inherit',
+            }}>
               <Play size={20} fill="white" />
-              Activar Audio y Pantalla
+              Activar Pantalla y Audio
             </button>
           </div>
         </div>
       )}
 
-      {/* Header */}
+      {/* ── Header ── */}
       <header style={{
-        height: '90px', borderBottom: '2px solid #1e293b',
-        padding: '0 3rem', display: 'flex', justifyContent: 'space-between',
-        alignItems: 'center', background: '#0b0f19'
+        height: '72px', flexShrink: 0,
+        background: 'rgba(13,12,23,0.95)',
+        borderBottom: '1px solid rgba(124,58,237,0.2)',
+        padding: '0 2.5rem',
+        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+        backdropFilter: 'blur(20px)',
+        boxShadow: '0 4px 24px rgba(0,0,0,0.4)',
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+        {/* Logo */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.875rem' }}>
           <div style={{
+            width: '42px', height: '42px', borderRadius: '12px',
+            background: 'linear-gradient(135deg, #7c3aed, #a855f7)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            width: '45px', height: '45px',
-            background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-            color: 'white', borderRadius: '12px'
+            boxShadow: '0 6px 20px rgba(124,58,237,0.4)',
           }}>
-            <Tv size={24} />
+            <CalendarIcon size={22} color="white" />
           </div>
-          <h1 style={{ fontSize: '2rem', fontWeight: 900, letterSpacing: '-0.02em', textTransform: 'uppercase' }}>
-            {empresaNombre}
-          </h1>
+          <div>
+            <div style={{ fontSize: '1.1rem', fontWeight: 900, color: 'white', letterSpacing: '-0.02em', lineHeight: 1 }}>
+              {empresaNombre}
+            </div>
+            <div style={{ fontSize: '0.65rem', color: 'rgba(255,255,255,0.35)', fontWeight: 500, marginTop: '1px', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+              Sistema de Gestión de Turnos
+            </div>
+          </div>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#94a3b8', fontSize: '1rem', fontWeight: 600 }}>
-            {audioEnabled
-              ? <Volume2 size={20} style={{ color: '#10b981' }} />
-              : <VolumeX size={20} style={{ color: '#ef4444' }} />}
-            <span>{audioEnabled ? 'Altavoz Activo' : 'Mudo'}</span>
+        {/* Centro: reloj */}
+        <div style={{
+          fontSize: '1.75rem', fontWeight: 800, color: 'white',
+          letterSpacing: '0.05em', fontVariantNumeric: 'tabular-nums',
+          background: 'rgba(255,255,255,0.05)', padding: '0.35rem 1.25rem',
+          borderRadius: '12px', border: '1px solid rgba(255,255,255,0.08)',
+        }}>
+          {horaActual}
+        </div>
+
+        {/* Derecha: estado */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.85rem', fontWeight: 600, color: 'rgba(255,255,255,0.5)' }}>
+            {audioEnabled ? <Volume2 size={16} style={{ color: '#a78bfa' }} /> : <VolumeX size={16} style={{ color: '#f87171' }} />}
+            <span>{audioEnabled ? 'Audio activo' : 'Sin audio'}</span>
           </div>
           <div style={{
-            background: '#1e293b', padding: '0.4rem 1rem', borderRadius: '10px',
-            fontSize: '0.85rem', fontWeight: 700,
-            color: socketConnected ? '#10b981' : '#f59e0b'
+            display: 'flex', alignItems: 'center', gap: '0.4rem',
+            padding: '0.3rem 0.875rem', borderRadius: '20px',
+            background: socketConnected ? 'rgba(52,211,153,0.15)' : 'rgba(251,191,36,0.15)',
+            border: `1px solid ${socketConnected ? 'rgba(52,211,153,0.35)' : 'rgba(251,191,36,0.35)'}`,
+            color: socketConnected ? '#34d399' : '#fbbf24',
+            fontSize: '0.78rem', fontWeight: 700,
           }}>
-            {socketConnected ? '⚡ EN LÍNEA' : '🔁 POLLING'}
+            <Zap size={13} />
+            {socketConnected ? 'EN LÍNEA' : 'POLLING'}
           </div>
         </div>
       </header>
 
-      {/* Panel principal */}
-      <main style={{ flex: 1, display: 'grid', gridTemplateColumns: '1.3fr 1fr', overflow: 'hidden' }}>
+      {/* ── Contenido principal ── */}
+      <main style={{ flex: 1, display: 'grid', gridTemplateColumns: '1.4fr 1fr', overflow: 'hidden', minHeight: 0 }}>
 
-        {/* Izquierda: turno actual */}
+        {/* ── Izquierda: turno en atención ── */}
         <section style={{
-          borderRight: '3px solid #1e293b',
-          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-          padding: '4rem', position: 'relative',
-          background: 'radial-gradient(circle at 50% 50%, #1e293b 0%, #0f172a 100%)'
+          borderRight: '1px solid rgba(124,58,237,0.15)',
+          display: 'flex', flexDirection: 'column',
+          alignItems: 'center', justifyContent: 'center',
+          padding: '3rem 4rem', position: 'relative', overflow: 'hidden',
+          background: 'linear-gradient(160deg, #13111c 0%, #1a1530 100%)',
         }}>
+          {/* Orbe decorativo */}
+          <div style={{
+            position: 'absolute', top: '-80px', left: '50%', transform: 'translateX(-50%)',
+            width: '500px', height: '500px', borderRadius: '50%',
+            background: esPrioritario
+              ? 'radial-gradient(circle, rgba(251,191,36,0.12) 0%, transparent 65%)'
+              : blinking
+                ? 'radial-gradient(circle, rgba(124,58,237,0.18) 0%, transparent 65%)'
+                : 'radial-gradient(circle, rgba(124,58,237,0.08) 0%, transparent 65%)',
+            pointerEvents: 'none', transition: 'background 0.5s',
+          }} />
+
           {currentTurno ? (
             <div style={{
               textAlign: 'center', width: '100%',
-              animation: blinking ? 'blinkGlow 1.2s infinite' : 'none',
-              borderRadius: '32px', padding: '3rem',
-              background: blinking ? 'rgba(16, 185, 129, 0.05)' : 'transparent',
-              border: blinking ? '3px solid #10b981' : '3px solid transparent',
-              transition: 'all 0.3s ease'
+              position: 'relative', zIndex: 1,
             }}>
-              <span style={{
-                fontSize: '2rem', fontWeight: 800, letterSpacing: '0.15em',
-                textTransform: 'uppercase', display: 'block', marginBottom: '1rem',
-                color: currentTurno.prioridad === 'PRIORITARIO' ? '#fbbf24' : '#60a5fa',
+              {/* Badge de tipo */}
+              <div style={{
+                display: 'inline-flex', alignItems: 'center', gap: '0.5rem',
+                padding: '0.5rem 1.5rem', borderRadius: '999px', marginBottom: '2rem',
+                background: esPrioritario ? 'rgba(251,191,36,0.15)' : 'rgba(124,58,237,0.18)',
+                border: `1px solid ${esPrioritario ? 'rgba(251,191,36,0.4)' : 'rgba(124,58,237,0.4)'}`,
+                color: esPrioritario ? '#fde047' : '#c4b5fd',
+                fontSize: '1rem', fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase',
               }}>
-                {currentTurno.prioridad === 'PRIORITARIO'
-                  ? `⭐ Llamado Preferencial (${currentTurno.motivoPrioridad})`
-                  : 'Llamado Activo'}
-              </span>
-
-              <h2 style={{
-                fontSize: '12rem', fontWeight: 950, color: 'white',
-                lineHeight: 1, letterSpacing: '-0.05em', margin: '1.5rem 0',
-                textShadow: '0 0 40px rgba(255,255,255,0.1)'
-              }}>
-                {currentTurno.codigoTurno}
-              </h2>
-
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', marginTop: '2rem' }}>
-                <div style={{
-                  background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                  padding: '1rem 3rem', borderRadius: '20px',
-                  boxShadow: '0 10px 30px rgba(16, 185, 129, 0.25)'
-                }}>
-                  <h3 style={{ fontSize: '3rem', fontWeight: 900, color: 'white', margin: 0 }}>
-                    {currentTurno.ventanilla}
-                  </h3>
-                </div>
+                {esPrioritario ? `⭐ Llamado Preferencial · ${currentTurno.motivoPrioridad}` : '🟢 Llamado Activo'}
               </div>
 
-              <p style={{ fontSize: '1.75rem', color: '#94a3b8', fontWeight: 600, marginTop: '2.5rem' }}>
-                Trámite: {currentTurno.tramite?.nombre}
-              </p>
+              {/* Código gigante */}
+              <div style={{
+                fontSize: 'clamp(6rem, 14vw, 11rem)',
+                fontWeight: 950,
+                color: 'white',
+                lineHeight: 1,
+                letterSpacing: '-0.04em',
+                marginBottom: '1.5rem',
+                textShadow: blinking
+                  ? `0 0 60px ${esPrioritario ? 'rgba(251,191,36,0.7)' : 'rgba(124,58,237,0.8)'}`
+                  : '0 0 30px rgba(255,255,255,0.1)',
+                animation: blinking ? 'pulseScale 1.2s ease-in-out infinite' : 'none',
+                transition: 'text-shadow 0.3s',
+              }}>
+                {currentTurno.codigoTurno}
+              </div>
+
+              {/* Trámite */}
+              <div style={{
+                fontSize: '1.5rem', fontWeight: 700,
+                color: 'rgba(255,255,255,0.55)',
+                marginBottom: '2.5rem',
+                letterSpacing: '-0.01em',
+              }}>
+                {currentTurno.tramite?.nombre}
+              </div>
+
+              {/* Ventanilla */}
+              {currentTurno.ventanilla && (
+                <div style={{
+                  display: 'inline-flex', alignItems: 'center', gap: '0.75rem',
+                  padding: '1rem 3rem', borderRadius: '20px',
+                  background: 'linear-gradient(135deg, #7c3aed, #6d28d9)',
+                  boxShadow: '0 12px 40px rgba(124,58,237,0.5)',
+                }}>
+                  <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'rgba(255,255,255,0.65)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Ventanilla</span>
+                  <span style={{ fontSize: '2.5rem', fontWeight: 900, color: 'white', lineHeight: 1 }}>{currentTurno.ventanilla}</span>
+                </div>
+              )}
             </div>
           ) : (
-            <div style={{ textAlign: 'center', color: '#475569' }}>
-              <Tv size={120} strokeWidth={1} style={{ marginBottom: '2rem' }} />
-              <h2 style={{ fontSize: '2.5rem', fontWeight: 800, color: '#334155' }}>
-                Esperando Asignaciones
+            <div style={{ textAlign: 'center', position: 'relative', zIndex: 1 }}>
+              <div style={{
+                width: '120px', height: '120px', borderRadius: '30px', margin: '0 auto 2rem',
+                background: 'rgba(124,58,237,0.1)', border: '2px dashed rgba(124,58,237,0.2)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                color: 'rgba(124,58,237,0.4)',
+              }}>
+                <CalendarIcon size={48} color="rgba(124,58,237,0.5)" />
+              </div>
+              <h2 style={{ fontSize: '2rem', fontWeight: 800, color: 'rgba(255,255,255,0.25)', marginBottom: '0.5rem' }}>
+                Sin turno activo
               </h2>
-              <p style={{ fontSize: '1.25rem', marginTop: '0.5rem' }}>
-                Los nuevos llamados aparecerán aquí automáticamente.
+              <p style={{ fontSize: '1rem', color: 'rgba(255,255,255,0.15)' }}>
+                Los llamados aparecerán aquí automáticamente
               </p>
             </div>
           )}
         </section>
 
-        {/* Derecha: próximos turnos */}
-        <section style={{ background: '#0b0f19', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        {/* ── Derecha: cola de espera ── */}
+        <section style={{
+          background: '#13111c',
+          display: 'flex', flexDirection: 'column', overflow: 'hidden',
+        }}>
+          {/* Header de la cola */}
           <div style={{
-            height: '80px', background: '#090d16', borderBottom: '2px solid #1e293b',
-            display: 'flex', alignItems: 'center', padding: '0 2.5rem'
+            height: '64px', flexShrink: 0,
+            background: 'rgba(124,58,237,0.08)',
+            borderBottom: '1px solid rgba(124,58,237,0.15)',
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            padding: '0 1.75rem',
           }}>
-            <h3 style={{ fontSize: '1.5rem', fontWeight: 800, color: '#60a5fa', letterSpacing: '-0.02em' }}>
-              Próximos Turnos
-            </h3>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+              <Users size={18} style={{ color: '#a78bfa' }} />
+              <span style={{ fontSize: '1rem', fontWeight: 700, color: '#a78bfa', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                Próximos Turnos
+              </span>
+            </div>
+            {espera.length > 0 && (
+              <span style={{
+                background: 'rgba(124,58,237,0.2)', color: '#c4b5fd',
+                border: '1px solid rgba(124,58,237,0.35)',
+                padding: '0.15rem 0.65rem', borderRadius: '999px',
+                fontSize: '0.8rem', fontWeight: 700,
+              }}>{espera.length} en espera</span>
+            )}
           </div>
 
-          <div style={{ flex: 1, overflowY: 'auto', padding: '2rem 2.5rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+          {/* Lista */}
+          <div style={{ flex: 1, overflowY: 'auto', padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
             {espera.length > 0 ? espera.map((t, idx) => (
               <div key={t._id} style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                padding: '1.5rem 2rem',
-                background: t.prioridad === 'PRIORITARIO' ? 'linear-gradient(90deg, #1e293b 0%, #78350f 100%)' : '#1e293b',
-                border: t.prioridad === 'PRIORITARIO' ? '2px solid #d97706' : '1px solid #334155',
-                borderRadius: '20px',
+                display: 'flex', alignItems: 'center', gap: '1rem',
+                padding: '1rem 1.25rem', borderRadius: '14px',
+                background: t.prioridad === 'PRIORITARIO'
+                  ? 'rgba(251,191,36,0.08)'
+                  : 'rgba(255,255,255,0.04)',
+                border: `1px solid ${t.prioridad === 'PRIORITARIO' ? 'rgba(251,191,36,0.25)' : 'rgba(255,255,255,0.07)'}`,
+                transition: 'all 0.2s',
               }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
-                  <div style={{
-                    width: '45px', height: '45px', borderRadius: '12px',
-                    background: '#0f172a', display: 'flex', alignItems: 'center',
-                    justifyContent: 'center', fontSize: '1.25rem', fontWeight: 800, color: '#94a3b8'
-                  }}>
-                    {idx + 1}
+                {/* Número */}
+                <div style={{
+                  width: '38px', height: '38px', borderRadius: '10px', flexShrink: 0,
+                  background: idx === 0
+                    ? 'linear-gradient(135deg, #7c3aed, #a855f7)'
+                    : 'rgba(255,255,255,0.06)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: '1rem', fontWeight: 800,
+                  color: idx === 0 ? 'white' : 'rgba(255,255,255,0.4)',
+                  boxShadow: idx === 0 ? '0 4px 14px rgba(124,58,237,0.4)' : 'none',
+                }}>
+                  {idx + 1}
+                </div>
+
+                {/* Info */}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: '1.75rem', fontWeight: 900, color: 'white', lineHeight: 1, letterSpacing: '-0.02em' }}>
+                    {t.codigoTurno}
                   </div>
-                  <div>
-                    <h4 style={{ fontSize: '2.5rem', fontWeight: 900, color: 'white', margin: 0, lineHeight: 1 }}>
-                      {t.codigoTurno}
-                    </h4>
-                    <p style={{ fontSize: '0.9rem', color: '#94a3b8', fontWeight: 600, marginTop: '0.35rem' }}>
-                      {t.tramite?.nombre}
-                    </p>
+                  <div style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.4)', marginTop: '2px', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {t.tramite?.nombre}
                   </div>
                 </div>
-                <div style={{ textAlign: 'right' }}>
+
+                {/* Badge + hora */}
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px', flexShrink: 0 }}>
                   <span style={{
-                    fontSize: '0.8rem', fontWeight: 800, padding: '0.35rem 0.85rem',
-                    borderRadius: '6px',
-                    background: t.prioridad === 'PRIORITARIO' ? '#92400e' : '#1e3a5f',
-                    color: t.prioridad === 'PRIORITARIO' ? '#fde68a' : '#93c5fd',
+                    fontSize: '0.65rem', fontWeight: 800, padding: '0.2rem 0.55rem', borderRadius: '6px',
+                    background: t.prioridad === 'PRIORITARIO' ? 'rgba(251,191,36,0.2)' : 'rgba(124,58,237,0.2)',
+                    color: t.prioridad === 'PRIORITARIO' ? '#fde047' : '#c4b5fd',
+                    border: `1px solid ${t.prioridad === 'PRIORITARIO' ? 'rgba(251,191,36,0.35)' : 'rgba(124,58,237,0.35)'}`,
+                    textTransform: 'uppercase',
                   }}>
-                    {t.prioridad === 'PRIORITARIO' ? '⭐ PREFERENCIAL' : 'NORMAL'}
+                    {t.prioridad === 'PRIORITARIO' ? '⭐ PREF.' : 'NORMAL'}
                   </span>
-                  <p style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.5rem' }}>
-                    {t.hora}
-                  </p>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '3px', fontSize: '0.7rem', color: 'rgba(255,255,255,0.25)' }}>
+                    <Clock size={10} />{t.hora}
+                  </span>
                 </div>
               </div>
             )) : (
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#475569' }}>
-                <h3 style={{ fontSize: '1.25rem', fontWeight: 700 }}>Fila vacía</h3>
-                <p style={{ fontSize: '0.95rem', marginTop: '0.25rem' }}>No hay turnos pendientes.</p>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'rgba(255,255,255,0.15)', gap: '0.5rem' }}>
+                <Users size={40} strokeWidth={1} />
+                <span style={{ fontSize: '0.9rem', fontWeight: 600 }}>Fila vacía</span>
               </div>
             )}
           </div>
         </section>
       </main>
 
-      {/* Footer marquesina */}
+      {/* ── Footer marquesina ── */}
       <footer style={{
-        height: '60px', background: '#090d16', borderTop: '2px solid #1e293b',
-        display: 'flex', alignItems: 'center', padding: '0 3rem', overflow: 'hidden',
+        height: '52px', flexShrink: 0,
+        background: 'rgba(13,12,23,0.95)',
+        borderTop: '1px solid rgba(124,58,237,0.15)',
+        display: 'flex', alignItems: 'center', padding: '0 2rem', overflow: 'hidden', gap: '1.25rem',
       }}>
         <div style={{
-          background: '#ef4444', color: 'white', padding: '0.25rem 1rem',
-          borderRadius: '6px', fontWeight: 800, fontSize: '0.85rem',
-          marginRight: '2rem', flexShrink: 0
+          background: 'linear-gradient(135deg, #7c3aed, #6d28d9)',
+          color: 'white', padding: '0.2rem 0.875rem', borderRadius: '6px',
+          fontWeight: 800, fontSize: '0.72rem', flexShrink: 0, letterSpacing: '0.05em',
         }}>
-          ANUNCIO
+          AVISO
         </div>
         <div style={{ flex: 1, overflow: 'hidden' }}>
           <div style={{
-            whiteSpace: 'nowrap', fontSize: '1.1rem', fontWeight: 600, color: '#94a3b8',
-            animation: 'marqueeScroll 25s linear infinite'
+            whiteSpace: 'nowrap', fontSize: '0.9rem', fontWeight: 500, color: 'rgba(255,255,255,0.4)',
+            animation: 'marqueeScroll 30s linear infinite',
           }}>
-            📢 ATENCIÓN: Por favor, tenga a la mano su ticket impreso y observe su número en pantalla. Los turnos prioritarios (adultos mayores, mujeres embarazadas y personas con discapacidad) serán atendidos con preferencia. Agradecemos su paciencia y colaboración.
+            📢 Por favor tenga a mano su ticket e identifique su número en pantalla. Los turnos PREFERENCIALES (adultos mayores, mujeres en estado de embarazo y personas con discapacidad) serán atendidos con prioridad. Gracias por su paciencia y colaboración.
           </div>
         </div>
       </footer>
 
       <style>{`
-        @keyframes blinkGlow {
-          0%   { border-color: rgba(16,185,129,0.2); box-shadow: 0 0 10px rgba(16,185,129,0.1); }
-          50%  { border-color: rgba(16,185,129,1);   box-shadow: 0 0 35px rgba(16,185,129,0.6); }
-          100% { border-color: rgba(16,185,129,0.2); box-shadow: 0 0 10px rgba(16,185,129,0.1); }
+        @keyframes pulseScale {
+          0%, 100% { transform: scale(1); }
+          50%       { transform: scale(1.03); }
         }
         @keyframes marqueeScroll {
-          0%   { transform: translateX(100%); }
+          0%   { transform: translateX(100vw); }
           100% { transform: translateX(-100%); }
         }
       `}</style>
