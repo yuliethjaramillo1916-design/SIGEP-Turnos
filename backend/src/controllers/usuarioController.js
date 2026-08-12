@@ -1,6 +1,7 @@
 const Usuario = require('../models/Usuario');
 const Ventanilla = require('../models/Ventanilla');
 const bcrypt = require('bcryptjs');
+const { validarLimite } = require('../services/limitesService');
 
 // Helper para obtener el filtro según el rol del usuario
 const getQueryFilter = (user) => {
@@ -44,6 +45,14 @@ exports.createUsuario = async (req, res) => {
     try {
         // La entidadId será la de la petición si es SUPER_ADMIN, sino la del token
         const targetEntidadId = req.user.rol === 'SUPER_ADMIN' ? req.body.entidadId : req.user.entidadId;
+
+        // Validar límite de usuarios permitidos en el plan
+        if (targetEntidadId && req.user.rol !== 'SUPER_ADMIN') {
+            const validacion = await validarLimite(targetEntidadId, 'usuario');
+            if (!validacion.permitido) {
+                return res.status(403).json({ message: validacion.mensaje });
+            }
+        }
 
         // Validar si el email ya existe en esa entidad
         const userExists = await Usuario.findOne({ email, entidadId: targetEntidadId });

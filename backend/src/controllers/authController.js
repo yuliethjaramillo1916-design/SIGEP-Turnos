@@ -36,24 +36,25 @@ exports.login = async (req, res) => {
             return res.status(400).json({ message: 'Por favor, ingrese correo y contraseña' });
         }
 
-        // ── 2. Búsqueda Condicional ──────────────────────────────────────────
-        // Si el usuario proporcionó entidadId, buscamos por correo y entidad.
-        // Si NO proporcionó (ej. SUPER_ADMIN sin seleccionar nada), busca solo por correo.
-        const query = { email: email.toLowerCase().trim() };
-        if (entidadId) {
-            query.entidadId = entidadId;
-        }
+        // ── 2. Búsqueda de Usuario ──────────────────────────────────────────
+        // Primero buscamos el usuario por email
+        const emailNormalizado = email.toLowerCase().trim();
+        const usuario = await Usuario.findOne({ email: emailNormalizado });
 
-        const usuario = await Usuario.findOne(query);
         if (!usuario) {
             return res.status(401).json({ message: 'Credenciales inválidas' });
         }
 
         // ── 3. Validación de Selección de Entidad ────────────────────────────
-        // Los usuarios normales están obligados a proporcionar entidadId.
-        // Solo el SUPER_ADMIN puede loguearse sin seleccionar entidad.
-        if (usuario.rol !== 'SUPER_ADMIN' && !entidadId) {
-            return res.status(400).json({ message: 'Debe seleccionar una entidad para iniciar sesión.' });
+        // Los usuarios normales deben pertenecer a la entidad seleccionada.
+        // El SUPER_ADMIN tiene entidadId = null y no depende de ninguna entidad.
+        if (usuario.rol !== 'SUPER_ADMIN') {
+            if (!entidadId) {
+                return res.status(400).json({ message: 'Debe seleccionar una entidad para iniciar sesión.' });
+            }
+            if (usuario.entidadId && String(usuario.entidadId) !== String(entidadId)) {
+                return res.status(401).json({ message: 'Este usuario no pertenece a la entidad seleccionada.' });
+            }
         }
 
         // ── 4. Validar que la cuenta esté activa ─────────────────────────────
@@ -84,7 +85,8 @@ exports.login = async (req, res) => {
             if (entidad.estado !== 'activa') {
                 const mensajes = {
                     inactiva:   'La entidad a la que perteneces está inactiva temporalmente.',
-                    suspendida: 'La entidad a la que perteneces ha sido suspendida. Contacta al administrador del sistema.'
+                    suspendida: 'La entidad a la que perteneces ha sido suspendida. Contacta al administrador del sistema.',
+                    archivada:  'La entidad a la que perteneces ha sido archivada y desactivada.'
                 };
                 return res.status(403).json({
                     message: mensajes[entidad.estado] || 'No tienes permiso para acceder al sistema.'
@@ -101,6 +103,19 @@ exports.login = async (req, res) => {
         };
 
         const token = generateToken(tokenPayload);
+
+        // Si es SUPER_ADMIN, registrar evento de auditoría
+        if (usuario.rol === 'SUPER_ADMIN') {
+            try {
+                const { registrarAuditoria } = require('../services/auditoriaService');
+                registrarAuditoria({
+                    accion: 'LOGIN_SUPER_ADMIN',
+                    autor: usuario._id,
+                    detalles: `Inicio de sesión exitoso de SUPER_ADMIN: ${usuario.email}`,
+                    req
+                });
+            } catch (err) {}
+        }
 
         // ── 8. Responder con datos completos ────────────────────────────────
         return res.status(200).json({

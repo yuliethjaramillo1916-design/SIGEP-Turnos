@@ -1,4 +1,5 @@
 const Tramite = require('../models/Tramite');
+const { validarLimite } = require('../services/limitesService');
 
 exports.getTramites = async (req, res) => {
     try {
@@ -21,6 +22,13 @@ exports.getTramiteById = async (req, res) => {
 
 exports.createTramite = async (req, res) => {
     try {
+        if (req.user.entidadId && req.user.rol !== 'SUPER_ADMIN') {
+            const validacion = await validarLimite(req.user.entidadId, 'tramite');
+            if (!validacion.permitido) {
+                return res.status(403).json({ message: validacion.mensaje });
+            }
+        }
+
         const nuevoTramite = new Tramite({
             ...req.body,
             entidadId: req.user.entidadId

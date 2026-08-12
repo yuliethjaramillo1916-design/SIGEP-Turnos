@@ -83,7 +83,8 @@ export default function Login() {
       const entidadId = entidadSeleccionada ? entidadSeleccionada._id : null;
       const user = await login(entidadId, email, password);
       
-      if      (user.rol === 'ADMINISTRADOR') navigate('/');
+      if      (user.rol === 'SUPER_ADMIN')   navigate('/super-admin');
+      else if (user.rol === 'ADMINISTRADOR') navigate('/');
       else if (user.rol === 'OPERADOR')      navigate('/atencion');
       else if (user.rol === 'VIGILANTE')     navigate('/turnos');
       else                                   navigate('/');
@@ -394,6 +395,22 @@ export default function Login() {
                         </div>
                         
                         <div style={{ maxHeight: '180px', overflowY: 'auto' }}>
+                          {/* Opción Super Admin */}
+                          <div
+                            onClick={() => { setEntidadSeleccionada(null); setDropdownAbierto(false); }}
+                            style={{
+                              padding: '0.65rem 0.75rem', borderRadius: '8px',
+                              cursor: 'pointer', fontSize: '0.85rem', fontWeight: 600,
+                              display: 'flex', alignItems: 'center', gap: '0.75rem',
+                              background: !entidadSeleccionada ? 'rgba(236,72,153,0.15)' : 'transparent',
+                              color: !entidadSeleccionada ? '#f472b6' : 'rgba(255,255,255,0.7)',
+                              borderBottom: '1px solid rgba(255,255,255,0.06)', marginBottom: '0.25rem'
+                            }}
+                          >
+                            <Shield size={16} color={!entidadSeleccionada ? '#f472b6' : 'rgba(255,255,255,0.4)'} />
+                            <span>Acceso Global / Super Administrador</span>
+                          </div>
+
                           {entidadesFiltradas.length === 0 ? (
                             <div style={{ padding: '0.75rem', fontSize: '0.85rem', color: 'rgba(255,255,255,0.4)', textAlign: 'center' }}>
                               No se encontraron entidades

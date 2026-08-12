@@ -10,6 +10,7 @@ const historialRoutes = require('./historialRoutes');
 const reporteRoutes = require('./reporteRoutes');
 const configuracionRoutes = require('./configuracionRoutes');
 const entidadRoutes = require('./entidadRoutes');
+const superAdminRoutes = require('./superAdminRoutes');
 
 router.use('/auth', authRoutes);
 router.use('/usuarios', usuarioRoutes);
@@ -20,5 +21,6 @@ router.use('/historial', historialRoutes);
 router.use('/reportes', reporteRoutes);
 router.use('/configuracion', configuracionRoutes);
 router.use('/entidades', entidadRoutes);
+router.use('/super-admin', superAdminRoutes);
 
 module.exports = router;

@@ -2,6 +2,9 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { AuthProvider, useAuth } from './context/AuthContext';
 import PrivateRoute from './components/PrivateRoute';
 import Layout from './components/Layout';
+import SuperAdminLayout from './components/SuperAdminLayout';
+
+// Páginas Institucionales (Clientes)
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Turnos from './pages/Turnos';
@@ -14,6 +17,17 @@ import PantallaPublica from './pages/PantallaPublica';
 import Ventanillas from './pages/Ventanillas';
 import CrearTicket from './pages/CrearTicket';
 import HistorialAtencion from './pages/HistorialAtencion';
+
+// Páginas del SuperAdmin (SaaS Global)
+import SuperAdminDashboard from './pages/superadmin/SuperAdminDashboard';
+import SuperAdminEntidades from './pages/superadmin/SuperAdminEntidades';
+import SuperAdminPlanes from './pages/superadmin/SuperAdminPlanes';
+import SuperAdminLicencias from './pages/superadmin/SuperAdminLicencias';
+import SuperAdminOperaciones from './pages/superadmin/SuperAdminOperaciones';
+import SuperAdminAuditoria from './pages/superadmin/SuperAdminAuditoria';
+import SuperAdminMonitoreo from './pages/superadmin/SuperAdminMonitoreo';
+import SuperAdminConfiguracion from './pages/superadmin/SuperAdminConfiguracion';
+
 import './styles/global.css';
 
 // Componente para manejar la redirección de la raíz '/' según el rol del usuario logueado
@@ -27,6 +41,9 @@ const RootRedirect = () => {
   }
 
   // Redirigir según el rol del usuario
+  if (user?.rol === 'SUPER_ADMIN') {
+    return <Navigate to="/super-admin" replace />;
+  }
   if (user?.rol === 'OPERADOR') {
     return <Navigate to="/atencion" replace />;
   }
@@ -34,7 +51,7 @@ const RootRedirect = () => {
     return <Navigate to="/turnos" replace />;
   }
 
-  // Los administradores entran directo al Dashboard
+  // Los administradores entran directo al Dashboard institucional
   return <Dashboard />;
 };
 
@@ -49,7 +66,26 @@ function App() {
           {/* Pantalla pública de turnos (Sin Login, Sin Layout) */}
           <Route path="/pantalla-publica" element={<PantallaPublica />} />
 
-          {/* Rutas Privadas Protegidas con el Layout Común */}
+          {/* ══════════════ RUTAS SUPER_ADMIN (PLATAFORMA SAAS) ══════════════ */}
+          <Route path="/super-admin/*" element={
+            <PrivateRoute allowedRoles={['SUPER_ADMIN']}>
+              <SuperAdminLayout>
+                <Routes>
+                  <Route path="/" element={<SuperAdminDashboard />} />
+                  <Route path="/entidades" element={<SuperAdminEntidades />} />
+                  <Route path="/planes" element={<SuperAdminPlanes />} />
+                  <Route path="/licencias" element={<SuperAdminLicencias />} />
+                  <Route path="/operaciones" element={<SuperAdminOperaciones />} />
+                  <Route path="/auditoria" element={<SuperAdminAuditoria />} />
+                  <Route path="/monitoreo" element={<SuperAdminMonitoreo />} />
+                  <Route path="/configuracion" element={<SuperAdminConfiguracion />} />
+                  <Route path="*" element={<Navigate to="/super-admin" replace />} />
+                </Routes>
+              </SuperAdminLayout>
+            </PrivateRoute>
+          } />
+
+          {/* ══════════════ RUTAS INSTITUCIONALES (ENTIDADES CLIENTES) ══════════════ */}
           <Route path="/*" element={
             <PrivateRoute>
               <Layout>

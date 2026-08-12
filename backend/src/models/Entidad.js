@@ -32,9 +32,6 @@ const entidadSchema = new mongoose.Schema(
             required: [true, 'El NIT es obligatorio'],
             unique: true,
             trim: true
-            // Formato sugerido: "123456789-0"
-            // La validación de formato se hace en el controlador para
-            // mayor flexibilidad ante distintos formatos institucionales.
         },
 
         direccion: {
@@ -63,7 +60,7 @@ const entidadSchema = new mongoose.Schema(
         },
 
         logo: {
-            type: String,   // URL o ruta relativa al archivo de logo
+            type: String,   // URL o base64 o ruta
             default: ''
         },
 
@@ -71,15 +68,43 @@ const entidadSchema = new mongoose.Schema(
         estado: {
             type: String,
             enum: {
-                values: ['activa', 'inactiva', 'suspendida'],
-                message: 'El estado debe ser: activa, inactiva o suspendida'
+                values: ['activa', 'inactiva', 'suspendida', 'archivada'],
+                message: 'El estado debe ser: activa, inactiva, suspendida o archivada'
             },
             default: 'activa'
         },
 
+        // ── Plan y Límites SaaS ───────────────────────────────────────────
+        planId: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'Plan',
+            default: null
+        },
+
+        fechaVencimiento: {
+            type: Date,
+            default: null
+        },
+
+        cantidadMaximaUsuarios: {
+            type: Number,
+            default: 10,
+            min: [1, 'Mínimo 1 usuario']
+        },
+
+        cantidadMaximaVentanillas: {
+            type: Number,
+            default: 5,
+            min: [1, 'Mínimo 1 ventanilla']
+        },
+
+        cantidadMaximaTramites: {
+            type: Number,
+            default: 15,
+            min: [1, 'Mínimo 1 trámite']
+        },
+
         // ── Configuración operacional ─────────────────────────────────────
-        // Centraliza los datos que antes vivían en el modelo Configuracion
-        // (que era global). Ahora cada entidad tiene su propia configuración.
         horarioAtencion: {
             type: String,
             default: '08:00 - 17:00',
@@ -95,9 +120,6 @@ const entidadSchema = new mongoose.Schema(
         },
 
         prefijoCodigo: {
-            // Prefijo para los códigos de turno generados en esta entidad.
-            // Ejemplo: "VLL" → VLL-001, VLL-002 ...
-            // Esto permite identificar a qué entidad pertenece un código a simple vista.
             type: String,
             default: 'T',
             trim: true,
@@ -111,26 +133,21 @@ const entidadSchema = new mongoose.Schema(
 
         // ── Auditoría ─────────────────────────────────────────────────────
         creadoPor: {
-            // ID del SUPER_ADMIN que registró esta entidad en el sistema.
             type: mongoose.Schema.Types.ObjectId,
             ref: 'Usuario',
             default: null
         }
     },
     {
-        // Agrega automáticamente: createdAt (fechaCreación) y updatedAt (fechaActualización)
         timestamps: true,
-        // Nombre explícito de la colección en MongoDB
         collection: 'entidades'
     }
 );
 
 // ── Índices ────────────────────────────────────────────────────────────────
-// NIT ya tiene índice único por { unique: true } en el campo.
-// Índice por estado para consultas de SUPER_ADMIN (listar entidades activas/inactivas).
 entidadSchema.index({ estado: 1 });
-// Índice de texto para búsqueda por nombre (útil en el panel de SUPER_ADMIN).
 entidadSchema.index({ nombre: 'text' });
+entidadSchema.index({ planId: 1 });
 
 // ── Métodos de instancia ──────────────────────────────────────────────────
 
@@ -143,7 +160,6 @@ entidadSchema.methods.estaActiva = function () {
 
 /**
  * Devuelve un objeto plano con solo los datos públicos de la entidad
- * (sin exponer campos de auditoría).
  */
 entidadSchema.methods.toPublic = function () {
     return {
@@ -155,6 +171,11 @@ entidadSchema.methods.toPublic = function () {
         correo: this.correo,
         logo: this.logo,
         estado: this.estado,
+        planId: this.planId,
+        fechaVencimiento: this.fechaVencimiento,
+        cantidadMaximaUsuarios: this.cantidadMaximaUsuarios,
+        cantidadMaximaVentanillas: this.cantidadMaximaVentanillas,
+        cantidadMaximaTramites: this.cantidadMaximaTramites,
         horarioAtencion: this.horarioAtencion,
         limiteTurnosDia: this.limiteTurnosDia,
         prefijoCodigo: this.prefijoCodigo,

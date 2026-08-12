@@ -1,4 +1,5 @@
 const Ventanilla = require('../models/Ventanilla');
+const { validarLimite } = require('../services/limitesService');
 
 exports.getVentanillas = async (req, res) => {
     try {
@@ -21,6 +22,13 @@ exports.getVentanillaById = async (req, res) => {
 
 exports.createVentanilla = async (req, res) => {
     try {
+        if (req.user.entidadId && req.user.rol !== 'SUPER_ADMIN') {
+            const validacion = await validarLimite(req.user.entidadId, 'ventanilla');
+            if (!validacion.permitido) {
+                return res.status(403).json({ message: validacion.mensaje });
+            }
+        }
+
         const nuevaVentanilla = new Ventanilla({
             ...req.body,
             entidadId: req.user.entidadId
