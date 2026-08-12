@@ -48,12 +48,7 @@ export default function Login() {
       try {
         const res = await fetch(`${apiBase}/entidades/public`);
         const data = await res.json();
-        setEntidades(data);
-        
-        // Si existe solo una entidad, seleccionarla automáticamente
-        if (data && data.length === 1) {
-          setEntidadSeleccionada(data[0]);
-        }
+        setEntidades(data || []);
       } catch (err) {
         console.error('Error cargando entidades', err);
       } finally {
@@ -344,33 +339,32 @@ export default function Login() {
 
               <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
                 
-                {/* ── SELECTOR DE ENTIDAD ── */}
-                {entidades.length > 1 && (
-                  <div style={{ position: 'relative' }} ref={dropdownRef}>
-                    <label style={{ fontSize: '0.78rem', fontWeight: 600, color: 'rgba(255,255,255,0.5)', letterSpacing: '0.05em', display: 'block', marginBottom: '0.5rem' }}>
-                      ENTIDAD INSTITUCIONAL
-                    </label>
-                    
-                    <div 
-                      onClick={() => setDropdownAbierto(!dropdownAbierto)}
-                      style={{
-                        width: '100%', height: '48px',
-                        padding: '0 1rem 0 2.75rem',
-                        background: 'rgba(255,255,255,0.05)',
-                        border: '1px solid',
-                        borderColor: dropdownAbierto ? 'rgba(124,58,237,0.6)' : 'rgba(255,255,255,0.1)',
-                        borderRadius: '12px', color: 'white', fontSize: '0.9rem',
-                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                        cursor: 'pointer', transition: 'all 0.2s'
-                      }}
-                    >
-                      <Building2 size={15} color="rgba(255,255,255,0.3)" style={{ position: 'absolute', left: '1rem' }} />
-                      <span style={{ color: entidadSeleccionada ? 'white' : 'rgba(255,255,255,0.25)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {loadingEntidades ? 'Cargando entidades...' : 
-                         entidadSeleccionada ? entidadSeleccionada.nombre : 'Seleccione su entidad'}
-                      </span>
-                      <ChevronDown size={15} color="rgba(255,255,255,0.3)" style={{ transform: dropdownAbierto ? 'rotate(180deg)' : 'none', transition: '0.3s' }} />
-                    </div>
+                {/* ── SELECTOR DE ENTIDAD (Visible Siempre) ── */}
+                <div style={{ position: 'relative' }} ref={dropdownRef}>
+                  <label style={{ fontSize: '0.78rem', fontWeight: 600, color: 'rgba(255,255,255,0.5)', letterSpacing: '0.05em', display: 'block', marginBottom: '0.5rem' }}>
+                    ENTIDAD INSTITUCIONAL / ACCESO
+                  </label>
+                  
+                  <div 
+                    onClick={() => setDropdownAbierto(!dropdownAbierto)}
+                    style={{
+                      width: '100%', height: '48px',
+                      padding: '0 1rem 0 2.75rem',
+                      background: 'rgba(255,255,255,0.05)',
+                      border: '1px solid',
+                      borderColor: dropdownAbierto ? 'rgba(124,58,237,0.6)' : 'rgba(255,255,255,0.1)',
+                      borderRadius: '12px', color: 'white', fontSize: '0.9rem',
+                      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                      cursor: 'pointer', transition: 'all 0.2s'
+                    }}
+                  >
+                    <Building2 size={15} color="rgba(255,255,255,0.3)" style={{ position: 'absolute', left: '1rem' }} />
+                    <span style={{ color: entidadSeleccionada ? 'white' : '#f472b6', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: entidadSeleccionada ? 500 : 700 }}>
+                      {loadingEntidades ? 'Cargando entidades...' : 
+                       entidadSeleccionada ? entidadSeleccionada.nombre : '👑 Acceso Global / Super Administrador'}
+                    </span>
+                    <ChevronDown size={15} color="rgba(255,255,255,0.3)" style={{ transform: dropdownAbierto ? 'rotate(180deg)' : 'none', transition: '0.3s' }} />
+                  </div>
 
                     {/* Menú desplegable */}
                     {dropdownAbierto && (
@@ -447,7 +441,6 @@ export default function Login() {
                       </div>
                     )}
                   </div>
-                )}
                 {/* ── FIN SELECTOR ── */}
 
                 {/* Email */}

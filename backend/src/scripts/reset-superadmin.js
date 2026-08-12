@@ -6,8 +6,6 @@ const Usuario = require('../models/Usuario');
 async function resetPassword() {
     try {
         await mongoose.connect(process.env.MONGODB_URI);
-        const salt = await bcrypt.genSalt(10);
-        const hash = await bcrypt.hash('superadmin123', salt);
         
         let usuario = await Usuario.findOne({ email: 'superadmin@sigep.com' });
         if (!usuario) {
@@ -15,21 +13,27 @@ async function resetPassword() {
                 nombre: 'Super',
                 apellido: 'Admin',
                 email: 'superadmin@sigep.com',
-                password: hash,
+                password: 'superadmin123', // pre('save') genera el salt y hash limpio
                 rol: 'SUPER_ADMIN',
                 estado: true,
                 entidadId: null
             });
             await usuario.save();
-            console.log('✅ Usuario SuperAdmin creado con contraseña superadmin123');
+            console.log('✅ Usuario SuperAdmin creado con contraseña: superadmin123');
         } else {
-            usuario.password = hash;
+            // Asignar en texto plano para que el hook pre('save') lo encripte una sola vez
+            usuario.password = 'superadmin123';
             usuario.rol = 'SUPER_ADMIN';
             usuario.estado = true;
             usuario.entidadId = null;
             await usuario.save();
-            console.log('✅ Contraseña de SuperAdmin actualizada exitosamente a: superadmin123');
+            console.log('✅ Contraseña de SuperAdmin actualizada con éxito a: superadmin123');
         }
+
+        // Verificación inmediata con bcrypt.compare
+        const verificacion = await bcrypt.compare('superadmin123', usuario.password);
+        console.log('Verificación de contraseña superadmin123:', verificacion ? 'CORRECTA ✅' : 'FALLO ❌');
+
         await mongoose.disconnect();
         process.exit(0);
     } catch (err) {
