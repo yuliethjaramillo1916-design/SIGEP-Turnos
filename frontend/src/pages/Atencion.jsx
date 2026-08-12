@@ -122,8 +122,10 @@ const Atencion = () => {
 
   const initSocket = () => {
     try {
-      // Conectar con el backend en puerto 3001
-      const socketUrl = import.meta.env.VITE_SOCKET_URL || 'http://localhost:3001';
+      const isProd = typeof window !== 'undefined' && 
+                     window.location.hostname !== 'localhost' && 
+                     window.location.hostname !== '127.0.0.1';
+      const socketUrl = import.meta.env.VITE_SOCKET_URL || (isProd ? window.location.origin : 'http://localhost:3001');
       const socket = io(socketUrl);
       socketRef.current = socket;
 

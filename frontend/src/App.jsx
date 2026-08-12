@@ -57,7 +57,7 @@ const RootRedirect = () => {
 
 function App() {
   return (
-    <Router>
+    <Router basename="/turnos">
       <AuthProvider>
         <Routes>
           {/* Pantalla de inicio de sesión */}
