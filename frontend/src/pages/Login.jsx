@@ -30,7 +30,8 @@ export default function Login() {
 
   // ── Cargar límite de turnos (opcional) ──
   useEffect(() => {
-    fetch('http://localhost:3000/api/configuracion')
+    const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+    fetch(`${apiBase}/configuracion`)
       .then(r => r.json())
       .then(data => { if (data?.limite_turnos_dia) setLimiteTurnos(data.limite_turnos_dia); })
       .catch(() => {});
@@ -41,8 +42,8 @@ export default function Login() {
     const fetchEntidades = async () => {
       setLoadingEntidades(true);
       try {
-        // Usamos fetch directo para no ser interceptados por lógica JWT
-        const res = await fetch('http://localhost:3000/api/entidades/public');
+        const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+        const res = await fetch(`${apiBase}/entidades/public`);
         const data = await res.json();
         setEntidades(data);
         

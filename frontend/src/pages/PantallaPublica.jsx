@@ -128,7 +128,8 @@ const PantallaPublica = () => {
   };
 
   const initSocket = () => {
-    const socket = io('http://localhost:3000');
+    const socketUrl = import.meta.env.VITE_SOCKET_URL || 'http://localhost:3001';
+    const socket = io(socketUrl);
     socketRef.current = socket;
     socket.on('connect',       () => { setSocketConnected(true); if (pollingIntervalRef.current) { clearInterval(pollingIntervalRef.current); pollingIntervalRef.current = null; } });
     socket.on('disconnect',    () => { setSocketConnected(false); startPolling(); });

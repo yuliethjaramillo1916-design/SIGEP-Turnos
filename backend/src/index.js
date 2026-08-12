@@ -117,9 +117,10 @@ async function seedInitialData() {
     }
 }
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3001;
 
 server.listen(PORT, () => {
     console.log(`🚀 Servidor ejecutándose en el puerto ${PORT}`);
     console.log(`🔴 WebSockets (Socket.io) escuchando conexiones entrantes.`);
 });
+
