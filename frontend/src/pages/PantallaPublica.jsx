@@ -346,7 +346,6 @@ const PantallaPublica = () => {
                   background: 'linear-gradient(135deg, #7c3aed, #6d28d9)',
                   boxShadow: '0 12px 40px rgba(124,58,237,0.5)',
                 }}>
-                  <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'rgba(255,255,255,0.65)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Ventanilla</span>
                   <span style={{ fontSize: '2.5rem', fontWeight: 900, color: 'white', lineHeight: 1 }}>{currentTurno.ventanilla}</span>
                 </div>
               )}
