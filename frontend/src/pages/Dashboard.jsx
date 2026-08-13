@@ -170,7 +170,7 @@ const Dashboard = () => {
         }}>
           {/* Imagen de fondo */}
           <img
-            src="/turnos.png"
+            src={`${import.meta.env.BASE_URL || '/'}turnos.png`}
             alt=""
             style={{
               position: 'absolute', inset: 0,

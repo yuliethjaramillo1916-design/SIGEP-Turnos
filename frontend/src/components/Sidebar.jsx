@@ -123,20 +123,24 @@ const Sidebar = () => {
       <div style={{ marginTop: '1.5rem', paddingTop: '1rem', borderTop: '1px solid rgba(255,255,255,0.07)', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
 
         {/* Pantalla pública — solo admin */}
-        {user?.rol === 'ADMINISTRADOR' && (
-          <a href="/pantalla-publica" target="_blank" rel="noopener noreferrer" style={{
-            display: 'flex', alignItems: 'center', gap: '0.75rem',
-            padding: '0.65rem 0.875rem', borderRadius: '12px',
-            background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)',
-            color: 'rgba(255,255,255,0.5)', fontWeight: 600, fontSize: '0.875rem',
-            textDecoration: 'none', transition: 'all 0.2s',
-          }}>
-            <div style={{ width: '30px', height: '30px', borderRadius: '8px', background: 'rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Tv size={16} />
-            </div>
-            Pantalla Pública
-          </a>
-        )}
+        {user?.rol === 'ADMINISTRADOR' && (() => {
+          const baseUrl = import.meta.env.BASE_URL || '/';
+          const publicUrl = baseUrl.endsWith('/') ? `${baseUrl}pantalla-publica` : `${baseUrl}/pantalla-publica`;
+          return (
+            <a href={publicUrl} target="_blank" rel="noopener noreferrer" style={{
+              display: 'flex', alignItems: 'center', gap: '0.75rem',
+              padding: '0.65rem 0.875rem', borderRadius: '12px',
+              background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)',
+              color: 'rgba(255,255,255,0.5)', fontWeight: 600, fontSize: '0.875rem',
+              textDecoration: 'none', transition: 'all 0.2s',
+            }}>
+              <div style={{ width: '30px', height: '30px', borderRadius: '8px', background: 'rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Tv size={16} />
+              </div>
+              Pantalla Pública
+            </a>
+          );
+        })()}
 
         {/* Cerrar sesión */}
         <button onClick={logout} style={{
