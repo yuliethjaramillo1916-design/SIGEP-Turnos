@@ -17,6 +17,7 @@ conn.on('ready', () => {
         set -e
         echo "=== 1. DESCARGANDO CAMBIOS DEL REPOSITORIO ==="
         cd /home/yessica/proyectos/yessica.online/SIGEP-Turnos
+        git config --global --add safe.directory /home/yessica/proyectos/yessica.online/SIGEP-Turnos || true
         git reset --hard HEAD
         git pull origin main
 
