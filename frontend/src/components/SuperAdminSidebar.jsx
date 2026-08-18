@@ -49,9 +49,9 @@ const SuperAdminSidebar = () => {
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
           <div style={{
             width: '32px', height: '32px', borderRadius: '10px',
-            background: 'linear-gradient(135deg, #ec4899, #8b5cf6)',
+            background: 'linear-gradient(135deg, #7c3aed, #8b5cf6)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            color: 'white', boxShadow: '0 0 15px rgba(236,72,153,0.4)'
+            color: 'white', boxShadow: '0 0 15px rgba(124,58,237,0.4)'
           }}>
             <Sparkles size={18} />
           </div>
@@ -59,7 +59,7 @@ const SuperAdminSidebar = () => {
             <div style={{ fontSize: '1.1rem', fontWeight: 900, color: 'white', letterSpacing: '-0.5px', lineHeight: 1 }}>
               SIGEP<span style={{ color: '#c084fc' }}>-SaaS</span>
             </div>
-            <div style={{ fontSize: '0.65rem', color: '#f472b6', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', marginTop: '2px' }}>
+            <div style={{ fontSize: '0.65rem', color: '#a78bfa', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', marginTop: '2px' }}>
               SUPER ADMIN PANEL
             </div>
           </div>
@@ -99,15 +99,15 @@ const SuperAdminSidebar = () => {
                   padding: '0.65rem 0.875rem',
                   borderRadius: '12px',
                   background: isActive
-                    ? 'linear-gradient(135deg, rgba(236,72,153,0.28) 0%, rgba(139,92,246,0.28) 100%)'
+                    ? 'linear-gradient(135deg, rgba(124,58,237,0.28) 0%, rgba(139,92,246,0.28) 100%)'
                     : 'transparent',
                   color: isActive ? 'white' : 'rgba(255,255,255,0.55)',
                   fontWeight: isActive ? 700 : 500,
                   fontSize: '0.85rem',
                   transition: 'all 0.2s',
                   cursor: 'pointer',
-                  borderLeft: isActive ? '3px solid #ec4899' : '3px solid transparent',
-                  boxShadow: isActive ? '0 2px 14px rgba(236,72,153,0.25)' : 'none',
+                  borderLeft: isActive ? '3px solid #8b5cf6' : '3px solid transparent',
+                  boxShadow: isActive ? '0 2px 14px rgba(124,58,237,0.25)' : 'none',
                 }}
                 onMouseEnter={(e) => {
                   if (!isActive) {

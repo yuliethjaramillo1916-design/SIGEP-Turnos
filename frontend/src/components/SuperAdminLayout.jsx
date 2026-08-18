@@ -64,10 +64,10 @@ const SuperAdminLayout = ({ children }) => {
             {/* Avatar */}
             <div style={{
               width: '38px', height: '38px', borderRadius: '12px', flexShrink: 0,
-              background: 'linear-gradient(135deg, #ec4899, #8b5cf6)',
+              background: 'linear-gradient(135deg, #7c3aed, #8b5cf6)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               color: 'white', fontWeight: 900, fontSize: '0.85rem',
-              boxShadow: '0 4px 14px rgba(236,72,153,0.35)',
+              boxShadow: '0 4px 14px rgba(124,58,237,0.35)',
             }}>
               {initials}
             </div>

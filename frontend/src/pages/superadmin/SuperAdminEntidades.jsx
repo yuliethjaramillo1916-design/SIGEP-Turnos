@@ -186,9 +186,9 @@ export default function SuperAdminEntidades() {
           style={{
             display: 'flex', alignItems: 'center', gap: '0.6rem',
             padding: '0.75rem 1.4rem', borderRadius: '12px',
-            background: 'linear-gradient(135deg, #ec4899, #8b5cf6)',
+            background: 'linear-gradient(135deg, #7c3aed, #8b5cf6)',
             color: 'white', fontWeight: 700, fontSize: '0.9rem', border: 'none',
-            boxShadow: '0 6px 20px rgba(236,72,153,0.35)', cursor: 'pointer',
+            boxShadow: '0 6px 20px rgba(124,58,237,0.35)', cursor: 'pointer',
             transition: 'all 0.2s'
           }}
         >
@@ -463,7 +463,7 @@ export default function SuperAdminEntidades() {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
               <div>
                 <h2 style={{ fontSize: '1.35rem', fontWeight: 900, color: 'white', margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <Building2 size={22} color="#ec4899" /> Alta de Nueva Entidad Cliente
+                  <Building2 size={22} color="#8b5cf6" /> Alta de Nueva Entidad Cliente
                 </h2>
                 <p style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.5)', margin: '0.2rem 0 0 0' }}>
                   Aprovisionamiento automático de la entidad y su Administrador institucional.
@@ -674,9 +674,9 @@ export default function SuperAdminEntidades() {
                   type="submit" disabled={procesando}
                   style={{
                     padding: '0.75rem 1.75rem', borderRadius: '10px',
-                    background: 'linear-gradient(135deg, #ec4899, #8b5cf6)',
+                    background: 'linear-gradient(135deg, #7c3aed, #8b5cf6)',
                     border: 'none', color: 'white', fontWeight: 800, cursor: procesando ? 'not-allowed' : 'pointer',
-                    boxShadow: '0 4px 18px rgba(236,72,153,0.4)', opacity: procesando ? 0.7 : 1
+                    boxShadow: '0 4px 18px rgba(124,58,237,0.4)', opacity: procesando ? 0.7 : 1
                   }}
                 >
                   {procesando ? 'Creando Entidad...' : 'Crear Entidad & Administrador'}
@@ -863,7 +863,7 @@ export default function SuperAdminEntidades() {
                   type="submit" disabled={procesando}
                   style={{
                     padding: '0.75rem 1.75rem', borderRadius: '10px',
-                    background: 'linear-gradient(135deg, #ec4899, #8b5cf6)',
+                    background: 'linear-gradient(135deg, #7c3aed, #8b5cf6)',
                     border: 'none', color: 'white', fontWeight: 800, cursor: procesando ? 'not-allowed' : 'pointer'
                   }}
                 >
@@ -969,7 +969,7 @@ export default function SuperAdminEntidades() {
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem' }}>
                 <span style={{ color: 'rgba(255,255,255,0.4)' }}>Contraseña Temporal:</span>
-                <span style={{ color: '#f472b6', fontWeight: 800, fontFamily: 'monospace', letterSpacing: '1px' }}>
+                <span style={{ color: '#a78bfa', fontWeight: 800, fontFamily: 'monospace', letterSpacing: '1px' }}>
                   {modalExitoCredenciales.passwordTemporal}
                 </span>
               </div>
@@ -979,7 +979,7 @@ export default function SuperAdminEntidades() {
               onClick={() => setModalExitoCredenciales(null)}
               style={{
                 width: '100%', height: '46px', borderRadius: '12px',
-                background: 'linear-gradient(135deg, #ec4899, #8b5cf6)', border: 'none',
+                background: 'linear-gradient(135deg, #7c3aed, #8b5cf6)', border: 'none',
                 color: 'white', fontWeight: 800, fontSize: '0.95rem', cursor: 'pointer'
               }}
             >

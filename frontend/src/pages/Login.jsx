@@ -359,7 +359,7 @@ export default function Login() {
                     }}
                   >
                     <Building2 size={15} color="rgba(255,255,255,0.3)" style={{ position: 'absolute', left: '1rem' }} />
-                    <span style={{ color: entidadSeleccionada ? 'white' : '#f472b6', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: entidadSeleccionada ? 500 : 700 }}>
+                    <span style={{ color: entidadSeleccionada ? 'white' : '#a78bfa', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: entidadSeleccionada ? 500 : 700 }}>
                       {loadingEntidades ? 'Cargando entidades...' : 
                        entidadSeleccionada ? entidadSeleccionada.nombre : '👑 Acceso Global / Super Administrador'}
                     </span>
@@ -400,12 +400,12 @@ export default function Login() {
                               padding: '0.65rem 0.75rem', borderRadius: '8px',
                               cursor: 'pointer', fontSize: '0.85rem', fontWeight: 600,
                               display: 'flex', alignItems: 'center', gap: '0.75rem',
-                              background: !entidadSeleccionada ? 'rgba(236,72,153,0.15)' : 'transparent',
-                              color: !entidadSeleccionada ? '#f472b6' : 'rgba(255,255,255,0.7)',
+                              background: !entidadSeleccionada ? 'rgba(124,58,237,0.15)' : 'transparent',
+                              color: !entidadSeleccionada ? '#a78bfa' : 'rgba(255,255,255,0.7)',
                               borderBottom: '1px solid rgba(255,255,255,0.06)', marginBottom: '0.25rem'
                             }}
                           >
-                            <Shield size={16} color={!entidadSeleccionada ? '#f472b6' : 'rgba(255,255,255,0.4)'} />
+                            <Shield size={16} color={!entidadSeleccionada ? '#a78bfa' : 'rgba(255,255,255,0.4)'} />
                             <span>Acceso Global / Super Administrador</span>
                           </div>
 

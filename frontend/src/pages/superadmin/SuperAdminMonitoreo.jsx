@@ -111,7 +111,7 @@ export default function SuperAdminMonitoreo() {
             <div style={{
               height: '100%',
               width: `${Math.min(100, Math.round(((Number(memoria.heapUsedMB) || 1) / (Number(memoria.heapTotalMB) || 1)) * 100))}%`,
-              background: 'linear-gradient(90deg, #ec4899, #8b5cf6)', borderRadius: '10px'
+              background: 'linear-gradient(90deg, #7c3aed, #8b5cf6)', borderRadius: '10px'
             }} />
           </div>
         </div>

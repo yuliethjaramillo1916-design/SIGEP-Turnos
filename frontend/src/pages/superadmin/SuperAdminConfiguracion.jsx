@@ -208,9 +208,9 @@ export default function SuperAdminConfiguracion() {
             style={{
               display: 'flex', alignItems: 'center', gap: '0.6rem',
               padding: '0.85rem 2rem', borderRadius: '12px',
-              background: 'linear-gradient(135deg, #ec4899, #8b5cf6)', border: 'none',
+              background: 'linear-gradient(135deg, #7c3aed, #8b5cf6)', border: 'none',
               color: 'white', fontWeight: 800, fontSize: '0.95rem', cursor: guardando ? 'not-allowed' : 'pointer',
-              boxShadow: '0 4px 20px rgba(236,72,153,0.4)', opacity: guardando ? 0.7 : 1
+              boxShadow: '0 4px 20px rgba(124,58,237,0.4)', opacity: guardando ? 0.7 : 1
             }}
           >
             <Save size={18} /> {guardando ? 'Guardando Configuración...' : 'Guardar Configuración Global'}

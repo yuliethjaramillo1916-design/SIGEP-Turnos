@@ -39,8 +39,8 @@ export default function SuperAdminDashboard() {
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '60vh', gap: '1rem' }}>
         <div style={{
           width: '45px', height: '45px',
-          border: '3px solid rgba(236,72,153,0.2)',
-          borderTopColor: '#ec4899',
+          border: '3px solid rgba(124,58,237,0.2)',
+          borderTopColor: '#7c3aed',
           borderRadius: '50%',
           animation: 'spin 0.8s linear infinite'
         }} />
@@ -60,8 +60,8 @@ export default function SuperAdminDashboard() {
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.4rem' }}>
             <span style={{
-              fontSize: '0.75rem', fontWeight: 800, color: '#f472b6',
-              background: 'rgba(236,72,153,0.15)', border: '1px solid rgba(236,72,153,0.3)',
+              fontSize: '0.75rem', fontWeight: 800, color: '#a78bfa',
+              background: 'rgba(124,58,237,0.15)', border: '1px solid rgba(124,58,237,0.3)',
               padding: '0.2rem 0.6rem', borderRadius: '20px', textTransform: 'uppercase', letterSpacing: '0.06em'
             }}>
               Control Global
@@ -70,7 +70,7 @@ export default function SuperAdminDashboard() {
             <span style={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.8rem' }}>Arquitectura Multi-Entidad</span>
           </div>
           <h1 style={{ fontSize: '2rem', fontWeight: 900, color: 'white', letterSpacing: '-0.03em', margin: 0 }}>
-            Panel de Control del <span style={{ background: 'linear-gradient(135deg, #ec4899, #a855f7)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>SUPER ADMIN</span>
+            Panel de Control del <span style={{ background: 'linear-gradient(135deg, #7c3aed, #a855f7)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>SUPER ADMIN</span>
           </h1>
           <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.9rem', marginTop: '0.3rem', maxWidth: '600px' }}>
             Monitoreo agregado, licencias, clientes institucionales y salud técnica de la plataforma SaaS.
@@ -97,9 +97,9 @@ export default function SuperAdminDashboard() {
             style={{
               display: 'flex', alignItems: 'center', gap: '0.5rem',
               padding: '0.65rem 1.25rem', borderRadius: '12px',
-              background: 'linear-gradient(135deg, #ec4899, #8b5cf6)',
+              background: 'linear-gradient(135deg, #7c3aed, #8b5cf6)',
               color: 'white', fontWeight: 700, fontSize: '0.85rem', textDecoration: 'none',
-              boxShadow: '0 4px 18px rgba(236,72,153,0.35)', transition: 'all 0.2s'
+              boxShadow: '0 4px 18px rgba(124,58,237,0.35)', transition: 'all 0.2s'
             }}
           >
             <Building2 size={16} /> Nueva Entidad
@@ -343,7 +343,7 @@ export default function SuperAdminDashboard() {
                       <div style={{ height: '5px', background: 'rgba(255,255,255,0.08)', borderRadius: '10px', overflow: 'hidden' }}>
                         <div style={{
                           height: '100%', width: `${pctUsuarios}%`,
-                          background: pctUsuarios > 85 ? 'linear-gradient(90deg, #f59e0b, #ef4444)' : 'linear-gradient(90deg, #8b5cf6, #ec4899)',
+                          background: pctUsuarios > 85 ? 'linear-gradient(90deg, #f59e0b, #ef4444)' : 'linear-gradient(90deg, #7c3aed, #8b5cf6)',
                           borderRadius: '10px', transition: 'width 0.5s ease'
                         }} />
                       </div>
@@ -400,7 +400,7 @@ export default function SuperAdminDashboard() {
           <div style={{ padding: '1rem', borderRadius: '14px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', color: 'white', fontWeight: 700, marginBottom: '0.5rem' }}>
               <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                <Cpu size={15} color="#ec4899" /> Memoria Heap (Node.js)
+                <Cpu size={15} color="#8b5cf6" /> Memoria Heap (Node.js)
               </span>
               <span>{servidor.memory?.heapUsedMB || 0} MB / {servidor.memory?.heapTotalMB || 0} MB</span>
             </div>
@@ -408,7 +408,7 @@ export default function SuperAdminDashboard() {
               <div style={{
                 height: '100%',
                 width: `${Math.min(100, Math.round(((servidor.memory?.heapUsedMB || 1) / (servidor.memory?.heapTotalMB || 1)) * 100))}%`,
-                background: 'linear-gradient(90deg, #ec4899, #8b5cf6)',
+                background: 'linear-gradient(90deg, #7c3aed, #8b5cf6)',
                 borderRadius: '10px'
               }} />
             </div>

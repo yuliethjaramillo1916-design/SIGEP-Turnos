@@ -116,9 +116,9 @@ export default function SuperAdminLicencias() {
           style={{
             display: 'flex', alignItems: 'center', gap: '0.6rem',
             padding: '0.75rem 1.4rem', borderRadius: '12px',
-            background: 'linear-gradient(135deg, #ec4899, #8b5cf6)',
+            background: 'linear-gradient(135deg, #7c3aed, #8b5cf6)',
             color: 'white', fontWeight: 700, fontSize: '0.9rem', border: 'none',
-            boxShadow: '0 6px 20px rgba(236,72,153,0.35)', cursor: 'pointer'
+            boxShadow: '0 6px 20px rgba(124,58,237,0.35)', cursor: 'pointer'
           }}
         >
           <Plus size={18} /> Emitir Nueva Licencia
@@ -337,7 +337,7 @@ export default function SuperAdminLicencias() {
                   type="submit" disabled={procesando}
                   style={{
                     padding: '0.75rem 1.5rem', borderRadius: '10px',
-                    background: 'linear-gradient(135deg, #ec4899, #8b5cf6)',
+                    background: 'linear-gradient(135deg, #7c3aed, #8b5cf6)',
                     border: 'none', color: 'white', fontWeight: 800, cursor: procesando ? 'not-allowed' : 'pointer'
                   }}
                 >
@@ -454,7 +454,7 @@ export default function SuperAdminLicencias() {
                   type="submit" disabled={procesando}
                   style={{
                     padding: '0.75rem 1.75rem', borderRadius: '10px',
-                    background: 'linear-gradient(135deg, #ec4899, #8b5cf6)',
+                    background: 'linear-gradient(135deg, #7c3aed, #8b5cf6)',
                     border: 'none', color: 'white', fontWeight: 800, cursor: procesando ? 'not-allowed' : 'pointer'
                   }}
                 >
