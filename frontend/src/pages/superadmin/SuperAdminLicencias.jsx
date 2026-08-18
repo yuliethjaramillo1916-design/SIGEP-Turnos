@@ -140,20 +140,17 @@ export default function SuperAdminLicencias() {
           </p>
         </div>
       ) : (
-        <div style={{
-          background: 'rgba(255,255,255,0.02)', borderRadius: '18px', border: '1px solid rgba(255,255,255,0.07)',
-          overflow: 'hidden'
-        }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.85rem' }}>
+        <div className="table-container" style={{ overflowX: 'auto' }}>
+          <table>
             <thead>
-              <tr style={{ background: 'rgba(255,255,255,0.04)', borderBottom: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.6)' }}>
-                <th style={{ padding: '1rem 1.25rem', fontWeight: 700 }}>Clave de Licencia</th>
-                <th style={{ padding: '1rem', fontWeight: 700 }}>Entidad Cliente</th>
-                <th style={{ padding: '1rem', fontWeight: 700 }}>Plan</th>
-                <th style={{ padding: '1rem', fontWeight: 700 }}>Consumo vs Límites</th>
-                <th style={{ padding: '1rem', fontWeight: 700 }}>Fecha Vencimiento</th>
-                <th style={{ padding: '1rem', fontWeight: 700 }}>Estado</th>
-                <th style={{ padding: '1rem 1.25rem', fontWeight: 700, textAlign: 'right' }}>Acciones</th>
+              <tr>
+                <th>Clave de Licencia</th>
+                <th>Entidad Cliente</th>
+                <th>Plan</th>
+                <th>Consumo vs Límites</th>
+                <th>Fecha Vencimiento</th>
+                <th>Estado</th>
+                <th style={{ textAlign: 'right' }}>Acciones</th>
               </tr>
             </thead>
             <tbody>

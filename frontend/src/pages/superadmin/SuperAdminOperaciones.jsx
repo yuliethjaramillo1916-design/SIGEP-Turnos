@@ -2,12 +2,14 @@ import { useState, useEffect } from 'react';
 import api from '../../services/api';
 import {
   Activity, ShieldAlert, AlertTriangle, CheckCircle2,
-  Calendar, Clock, Building2, User, Key, RefreshCw, Zap
+  Calendar, Clock, Building2, User, Key, RefreshCw, Zap,
+  ChevronDown, ChevronRight
 } from 'lucide-react';
 
 export default function SuperAdminOperaciones() {
   const [operaciones, setOperaciones] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [expandedGroups, setExpandedGroups] = useState({});
 
   const fetchOperaciones = async () => {
     try {
@@ -159,51 +161,134 @@ export default function SuperAdminOperaciones() {
           <div style={{ textAlign: 'center', padding: '3rem', color: 'rgba(255,255,255,0.4)' }}>
             No hay eventos registrados recientemente.
           </div>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
-            {eventosRecientes.map(ev => (
-              <div key={ev._id} style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                padding: '0.85rem 1.1rem', borderRadius: '12px',
-                background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)',
-                fontSize: '0.82rem'
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
-                  <div style={{
-                    width: '32px', height: '32px', borderRadius: '8px',
-                    background: 'rgba(236,72,153,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    color: '#f472b6', flexShrink: 0
-                  }}>
-                    <Activity size={16} />
-                  </div>
-                  <div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                      <span style={{
-                        padding: '0.15rem 0.45rem', borderRadius: '4px', fontSize: '0.68rem', fontWeight: 800,
-                        background: 'rgba(139,92,246,0.2)', color: '#c084fc'
-                      }}>
-                        {ev.accion}
-                      </span>
-                      {ev.entidadAfectada && (
-                        <span style={{ color: '#f472b6', fontWeight: 700 }}>
-                          [{ev.entidadAfectada.nombre}]
-                        </span>
-                      )}
-                    </div>
-                    <div style={{ color: 'white', fontWeight: 600, marginTop: '2px' }}>
-                      {ev.detalles}
-                    </div>
-                  </div>
-                </div>
+        ) : (() => {
+          // Agrupar eventos por entidadAfectada
+          const grupos = eventosRecientes.reduce((acc, ev) => {
+            const entId = ev.entidadAfectada?._id || 'global';
+            const entNombre = ev.entidadAfectada?.nombre || 'Sistema / Operaciones Globales';
+            if (!acc[entId]) {
+              acc[entId] = {
+                id: entId,
+                nombre: entNombre,
+                eventos: []
+              };
+            }
+            acc[entId].eventos.push(ev);
+            return acc;
+          }, {});
 
-                <div style={{ textAlign: 'right', flexShrink: 0, color: 'rgba(255,255,255,0.4)', fontSize: '0.72rem' }}>
-                  <div>{new Date(ev.createdAt).toLocaleDateString()}</div>
-                  <div>{new Date(ev.createdAt).toLocaleTimeString()}</div>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
+          return (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              {Object.values(grupos).map(grupo => {
+                const isExpanded = !!expandedGroups[grupo.id];
+
+                return (
+                  <div key={grupo.id} style={{
+                    background: 'rgba(255,255,255,0.01)',
+                    border: '1px solid rgba(255,255,255,0.04)',
+                    borderRadius: '14px',
+                    overflow: 'hidden'
+                  }}>
+                    {/* Cabecera del Grupo (Entidad) */}
+                    <div
+                      onClick={() => setExpandedGroups(prev => ({ ...prev, [grupo.id]: !prev[grupo.id] }))}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        padding: '0.9rem 1.25rem',
+                        background: isExpanded ? 'rgba(124,58,237,0.1)' : 'rgba(255,255,255,0.02)',
+                        cursor: 'pointer',
+                        userSelect: 'none',
+                        transition: 'all 0.2s',
+                        borderBottom: isExpanded ? '1px solid rgba(124,58,237,0.15)' : 'none'
+                      }}
+                      onMouseEnter={(e) => e.currentTarget.style.background = isExpanded ? 'rgba(124,58,237,0.12)' : 'rgba(255,255,255,0.05)'}
+                      onMouseLeave={(e) => e.currentTarget.style.background = isExpanded ? 'rgba(124,58,237,0.1)' : 'rgba(255,255,255,0.02)'}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                        <div style={{
+                          width: '28px', height: '28px', borderRadius: '8px',
+                          background: grupo.id === 'global' ? 'rgba(139,92,246,0.18)' : 'rgba(34,197,94,0.15)',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          color: grupo.id === 'global' ? '#c084fc' : '#4ade80',
+                        }}>
+                          {grupo.id === 'global' ? <Key size={14} /> : <Building2 size={14} />}
+                        </div>
+                        <span style={{ fontWeight: 800, color: 'white', fontSize: '0.88rem' }}>
+                          {grupo.nombre}
+                        </span>
+                        <span style={{
+                          fontSize: '0.72rem', fontWeight: 700, padding: '0.15rem 0.5rem', borderRadius: '20px',
+                          background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.6)'
+                        }}>
+                          {grupo.eventos.length} {grupo.eventos.length === 1 ? 'evento' : 'eventos'}
+                        </span>
+                      </div>
+                      
+                      <div style={{ color: 'rgba(255,255,255,0.4)', display: 'flex', alignItems: 'center' }}>
+                        {isExpanded ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
+                      </div>
+                    </div>
+
+                    {/* Lista de Eventos (Solo si está expandido) */}
+                    {isExpanded && (
+                      <div style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '0.5rem',
+                        padding: '1rem',
+                        background: 'rgba(0,0,0,0.15)',
+                        animation: 'fadeIn 0.2s ease'
+                      }}>
+                        {grupo.eventos.map(ev => (
+                          <div key={ev._id} style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            padding: '0.75rem 1rem',
+                            borderRadius: '8px',
+                            background: 'rgba(255,255,255,0.01)',
+                            border: '1px solid rgba(255,255,255,0.03)',
+                            fontSize: '0.8rem'
+                          }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                              <div style={{
+                                width: '28px', height: '28px', borderRadius: '6px',
+                                background: 'rgba(124,58,237,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                color: '#a78bfa', flexShrink: 0
+                              }}>
+                                <Activity size={14} />
+                              </div>
+                              <div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                  <span style={{
+                                    padding: '0.1rem 0.35rem', borderRadius: '4px', fontSize: '0.65rem', fontWeight: 800,
+                                    background: 'rgba(139,92,246,0.2)', color: '#c084fc'
+                                  }}>
+                                    {ev.accion}
+                                  </span>
+                                </div>
+                                <div style={{ color: 'rgba(255,255,255,0.85)', fontWeight: 500, marginTop: '2px' }}>
+                                  {ev.detalles}
+                                </div>
+                              </div>
+                            </div>
+
+                            <div style={{ textAlign: 'right', flexShrink: 0, color: 'rgba(255,255,255,0.4)', fontSize: '0.7rem' }}>
+                              <div>{new Date(ev.createdAt).toLocaleDateString()}</div>
+                              <div>{new Date(ev.createdAt).toLocaleTimeString()}</div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          );
+        })()}
       </div>
 
     </div>

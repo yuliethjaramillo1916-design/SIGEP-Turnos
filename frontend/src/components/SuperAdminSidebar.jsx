@@ -22,7 +22,6 @@ const SuperAdminSidebar = () => {
     { to: '/super-admin/planes',       icon: <Package size={18} />,         label: 'Planes SaaS' },
     { to: '/super-admin/licencias',    icon: <KeyRound size={18} />,        label: 'Licencias & Cupos' },
     { to: '/super-admin/operaciones',  icon: <Activity size={18} />,        label: 'Centro Operaciones' },
-    { to: '/super-admin/auditoria',    icon: <ShieldAlert size={18} />,     label: 'Auditoría Global' },
     { to: '/super-admin/monitoreo',    icon: <Server size={18} />,          label: 'Salud & Monitoreo' },
     { to: '/super-admin/configuracion',icon: <Settings size={18} />,        label: 'Configuración SaaS' },
   ];
@@ -71,10 +70,10 @@ const SuperAdminSidebar = () => {
         margin: '0 0.25rem 1.25rem',
         padding: '0.6rem 0.8rem',
         borderRadius: '10px',
-        background: 'rgba(236,72,153,0.1)',
-        border: '1px solid rgba(236,72,153,0.2)',
+        background: 'rgba(124,58,237,0.1)',
+        border: '1px solid rgba(124,58,237,0.2)',
         fontSize: '0.72rem',
-        color: '#f9a8d4',
+        color: '#c4b5fd',
         lineHeight: 1.3
       }}>
         👑 <strong>Control Maestro:</strong> Administrando clientes y licencias multi-entidad.
@@ -127,11 +126,11 @@ const SuperAdminSidebar = () => {
                   height: '30px',
                   borderRadius: '8px',
                   flexShrink: 0,
-                  background: isActive ? 'rgba(236,72,153,0.35)' : 'rgba(255,255,255,0.05)',
+                  background: isActive ? 'rgba(124,58,237,0.35)' : 'rgba(255,255,255,0.05)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  color: isActive ? '#f472b6' : 'rgba(255,255,255,0.45)',
+                  color: isActive ? '#a78bfa' : 'rgba(255,255,255,0.45)',
                 }}>
                   {link.icon}
                 </div>

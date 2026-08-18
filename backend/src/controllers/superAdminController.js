@@ -838,6 +838,19 @@ exports.cambiarEstadoLicencia = async (req, res) => {
         licencia.estado = estado;
         await licencia.save();
 
+        // Sincronizar en la entidad
+        if (licencia.entidadId) {
+            let nuevoEstadoEntidad = 'activa';
+            if (estado === 'suspendida') {
+                nuevoEstadoEntidad = 'suspendida';
+            } else if (estado === 'inactiva' || estado === 'cancelada') {
+                nuevoEstadoEntidad = 'inactiva';
+            }
+            await Entidad.findByIdAndUpdate(licencia.entidadId, {
+                estado: nuevoEstadoEntidad
+            });
+        }
+
         await registrarAuditoria({
             accion: 'SUSPENDER_LICENCIA',
             entidadAfectada: licencia.entidadId,

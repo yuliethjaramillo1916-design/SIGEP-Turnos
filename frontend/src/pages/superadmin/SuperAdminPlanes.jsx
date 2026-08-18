@@ -134,102 +134,123 @@ export default function SuperAdminPlanes() {
         </button>
       </div>
 
-      {/* ── Grid de Tarjetas de Planes ── */}
+      {/* ── Tabla de Planes SaaS ── */}
       {loading ? (
         <div style={{ textAlign: 'center', padding: '4rem', color: 'rgba(255,255,255,0.5)' }}>Cargando planes...</div>
+      ) : planes.length === 0 ? (
+        <div style={{
+          textAlign: 'center', padding: '4rem 2rem', background: 'rgba(255,255,255,0.02)',
+          borderRadius: '18px', border: '1px dashed rgba(255,255,255,0.1)'
+        }}>
+          <Package size={40} color="rgba(255,255,255,0.3)" style={{ marginBottom: '1rem' }} />
+          <h3 style={{ color: 'white', margin: '0 0 0.5rem 0' }}>No hay planes creados</h3>
+        </div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1.5rem' }}>
-          {planes.map((plan) => (
-            <div key={plan._id} style={{
-              background: 'rgba(255,255,255,0.03)', backdropFilter: 'blur(20px)',
-              border: plan.estado === 'activo' ? '1px solid rgba(139,92,246,0.25)' : '1px solid rgba(255,255,255,0.08)',
-              borderRadius: '22px', padding: '2rem', display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
-              position: 'relative', overflow: 'hidden', boxShadow: '0 12px 35px rgba(0,0,0,0.4)'
-            }}>
-              {/* Badge estado */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
-                <span style={{
-                  fontSize: '0.72rem', fontWeight: 800, padding: '0.25rem 0.65rem', borderRadius: '20px',
-                  background: plan.estado === 'activo' ? 'rgba(34,197,94,0.15)' : 'rgba(239,68,68,0.15)',
-                  color: plan.estado === 'activo' ? '#4ade80' : '#f87171', textTransform: 'uppercase'
-                }}>
-                  {plan.estado}
-                </span>
-                <span style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.4)', fontWeight: 600 }}>
-                  {plan.entidadesSuscritas || 0} entidades suscritas
-                </span>
-              </div>
+        <div className="table-container" style={{ overflowX: 'auto' }}>
+          <table>
+            <thead>
+              <tr>
+                <th>Nombre del Plan</th>
+                <th>Precio Mensual</th>
+                <th>Usuarios Máx.</th>
+                <th>Ventanillas Máx.</th>
+                <th>Trámites Máx.</th>
+                <th>Soporte / Backups</th>
+                <th>Estado</th>
+                <th style={{ textAlign: 'right' }}>Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              {planes.map((plan) => (
+                <tr key={plan._id}>
+                  {/* Nombre */}
+                  <td style={{ padding: '1rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                      <div style={{
+                        width: '32px', height: '32px', borderRadius: '8px',
+                        background: 'rgba(124,58,237,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        color: '#a78bfa', flexShrink: 0
+                      }}>
+                        <Package size={16} />
+                      </div>
+                      <div>
+                        <div style={{ fontWeight: 800, color: 'white' }}>{plan.nombre}</div>
+                        <div style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,0.45)' }}>
+                          {plan.descripcion || 'Sin descripción'}
+                        </div>
+                      </div>
+                    </div>
+                  </td>
 
-              <div>
-                <h3 style={{ fontSize: '1.5rem', fontWeight: 900, color: 'white', margin: '0 0 0.4rem 0' }}>
-                  {plan.nombre}
-                </h3>
-                <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.82rem', minHeight: '38px', margin: '0 0 1.25rem 0' }}>
-                  {plan.descripcion || 'Sin descripción ingresada.'}
-                </p>
+                  {/* Precio */}
+                  <td style={{ padding: '1rem', fontWeight: 800, color: 'white', fontSize: '0.92rem' }}>
+                    ${plan.precio?.toLocaleString('es-CO')} <span style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,0.4)', fontWeight: 500 }}>/ mes</span>
+                  </td>
 
-                {/* Precio */}
-                <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.3rem', marginBottom: '1.5rem' }}>
-                  <span style={{ fontSize: '2.4rem', fontWeight: 900, color: '#f472b6', lineHeight: 1 }}>
-                    ${plan.precio?.toLocaleString('es-CO')}
-                  </span>
-                  <span style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.4)', fontWeight: 600 }}>/ mes</span>
-                </div>
+                  {/* Usuarios */}
+                  <td style={{ padding: '1rem', fontWeight: 700, color: 'white' }}>
+                    {plan.cantidadMaximaUsuarios}
+                  </td>
 
-                {/* Características / Cuotas */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '1.25rem' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', fontSize: '0.85rem', color: 'white' }}>
-                    <Users size={16} color="#c084fc" />
-                    <span>Hasta <strong>{plan.cantidadMaximaUsuarios}</strong> usuarios institucionales</span>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', fontSize: '0.85rem', color: 'white' }}>
-                    <Monitor size={16} color="#c084fc" />
-                    <span>Hasta <strong>{plan.cantidadMaximaVentanillas}</strong> ventanillas activas</span>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', fontSize: '0.85rem', color: 'white' }}>
-                    <BookOpen size={16} color="#c084fc" />
-                    <span>Hasta <strong>{plan.cantidadMaximaTramites}</strong> trámites configurados</span>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', fontSize: '0.85rem', color: 'white' }}>
-                    <Zap size={16} color="#c084fc" />
-                    <span>Soporte: <strong>{plan.nivelSoporte}</strong></span>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', fontSize: '0.85rem', color: 'white' }}>
-                    <Clock size={16} color="#c084fc" />
-                    <span>Backups: <strong>{plan.frecuenciaBackups}</strong></span>
-                  </div>
-                </div>
-              </div>
+                  {/* Ventanillas */}
+                  <td style={{ padding: '1rem', fontWeight: 700, color: 'white' }}>
+                    {plan.cantidadMaximaVentanillas}
+                  </td>
 
-              {/* Botones de acción */}
-              <div style={{ display: 'flex', gap: '0.6rem', marginTop: '2rem', borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '1.25rem' }}>
-                <button
-                  onClick={() => abrirModalEditar(plan)}
-                  style={{
-                    flex: 1, padding: '0.65rem', borderRadius: '10px',
-                    background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)',
-                    color: 'white', fontWeight: 700, fontSize: '0.82rem', cursor: 'pointer',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem'
-                  }}
-                >
-                  <Edit2 size={14} /> Editar Plan
-                </button>
+                  {/* Trámites */}
+                  <td style={{ padding: '1rem', fontWeight: 700, color: 'white' }}>
+                    {plan.cantidadMaximaTramites}
+                  </td>
 
-                <button
-                  onClick={() => handleCambiarEstado(plan._id, plan.estado === 'activo' ? 'inactivo' : 'activo')}
-                  style={{
-                    padding: '0.65rem 1rem', borderRadius: '10px',
-                    background: plan.estado === 'activo' ? 'rgba(239,68,68,0.12)' : 'rgba(34,197,94,0.15)',
-                    border: `1px solid ${plan.estado === 'activo' ? 'rgba(239,68,68,0.3)' : 'rgba(34,197,94,0.3)'}`,
-                    color: plan.estado === 'activo' ? '#f87171' : '#4ade80', fontWeight: 700, fontSize: '0.82rem', cursor: 'pointer'
-                  }}
-                >
-                  {plan.estado === 'activo' ? 'Desactivar' : 'Activar'}
-                </button>
-              </div>
+                  {/* Soporte y Backups */}
+                  <td style={{ padding: '1rem' }}>
+                    <div style={{ fontWeight: 600, color: 'white' }}>{plan.nivelSoporte}</div>
+                    <div style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,0.45)' }}>Backup: {plan.frecuenciaBackups}</div>
+                  </td>
 
-            </div>
-          ))}
+                  {/* Estado */}
+                  <td style={{ padding: '1rem' }}>
+                    <span style={{
+                      fontSize: '0.72rem', fontWeight: 800, padding: '0.25rem 0.65rem', borderRadius: '20px',
+                      background: plan.estado === 'activo' ? 'rgba(34,197,94,0.15)' : 'rgba(239,68,68,0.15)',
+                      color: plan.estado === 'activo' ? '#4ade80' : '#f87171', textTransform: 'capitalize'
+                    }}>
+                      {plan.estado}
+                    </span>
+                  </td>
+
+                  {/* Acciones */}
+                  <td style={{ padding: '1rem', textAlign: 'right' }}>
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
+                      <button
+                        onClick={() => abrirModalEditar(plan)}
+                        style={{
+                          padding: '0.45rem 0.85rem', borderRadius: '8px',
+                          background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)',
+                          color: 'white', fontWeight: 700, fontSize: '0.78rem', cursor: 'pointer',
+                          display: 'flex', alignItems: 'center', gap: '0.3rem'
+                        }}
+                      >
+                        <Edit2 size={13} /> Editar
+                      </button>
+
+                      <button
+                        onClick={() => handleCambiarEstado(plan._id, plan.estado === 'activo' ? 'inactivo' : 'activo')}
+                        style={{
+                          padding: '0.45rem 0.85rem', borderRadius: '8px',
+                          background: plan.estado === 'activo' ? 'rgba(239,68,68,0.12)' : 'rgba(34,197,94,0.12)',
+                          border: `1px solid ${plan.estado === 'activo' ? 'rgba(239,68,68,0.25)' : 'rgba(34,197,94,0.25)'}`,
+                          color: plan.estado === 'activo' ? '#f87171' : '#4ade80', fontWeight: 700, fontSize: '0.78rem', cursor: 'pointer'
+                        }}
+                      >
+                        {plan.estado === 'activo' ? 'Desactivar' : 'Activar'}
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
 

@@ -1,5 +1,6 @@
 const jwt     = require('jsonwebtoken');
 const Usuario = require('../models/Usuario');
+const Entidad = require('../models/Entidad');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'sigep_turnos_secret_key_2026_super_secure';
 
@@ -45,7 +46,21 @@ const protect = async (req, res, next) => {
                 return res.status(403).json({ message: 'Este usuario está desactivado' });
             }
 
-            // 4. Construir req.user con todos los campos necesarios
+            // 4. Si el usuario no es SUPER_ADMIN, verificar el estado de su entidad
+            if (usuario.rol !== 'SUPER_ADMIN') {
+                const entidadIdAsociada = decoded.entidadId || usuario.entidadId;
+                if (entidadIdAsociada) {
+                    const entidad = await Entidad.findById(entidadIdAsociada).lean();
+                    if (!entidad || entidad.estado !== 'activa') {
+                        const mensaje = entidad && entidad.estado === 'suspendida'
+                            ? 'La entidad a la que perteneces ha sido suspendida. Contacta al administrador del sistema.'
+                            : 'La entidad a la que perteneces no está activa. Acceso denegado.';
+                        return res.status(403).json({ message: mensaje });
+                    }
+                }
+            }
+
+            // 5. Construir req.user con todos los campos necesarios
             //    Se usa el entidadId del TOKEN (firmado) para garantizar
             //    que no puede ser manipulado desde el cliente.
             req.user = {
