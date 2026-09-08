@@ -1,6 +1,6 @@
 import Sidebar from './Sidebar';
 import { useAuth } from '../context/AuthContext';
-import { Bell, X, CheckCircle, Ticket, Monitor, Users } from 'lucide-react';
+import { Bell, X, CheckCircle, Ticket, Monitor, Users, AlertTriangle } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import api from '../services/api';
 
@@ -11,33 +11,88 @@ const Layout = ({ children }) => {
   const [unread, setUnread]         = useState(0);
 
   useEffect(() => {
-    if (user?.rol !== 'ADMINISTRADOR') return;
+    if (!user) return;
     const fetch = async () => {
       try {
-        const [turnos, ventRes] = await Promise.all([
-          api.get('/turnos'),
-          api.get('/ventanillas'),
-        ]);
-        const hoy = new Date().toISOString().split('T')[0];
-        const deHoy = (turnos.data || []).filter(t => {
-          const f = t.fecha || (t.createdAt ? new Date(t.createdAt).toISOString().split('T')[0] : '');
-          return f === hoy;
-        });
         const lista = [];
-        const total = deHoy.length;
-        if (total > 0) lista.push({ id: 1, icon: 'ticket', color: '#a78bfa', msg: `${total} turno${total !== 1 ? 's' : ''} emitido${total !== 1 ? 's' : ''} hoy`, time: 'Hoy' });
-        const esp = deHoy.filter(t => t.estado === 'ESPERA').length;
-        if (esp > 0) lista.push({ id: 2, icon: 'espera', color: '#fbbf24', msg: `${esp} turno${esp !== 1 ? 's' : ''} en espera`, time: 'Ahora' });
-        const vents = (ventRes.data || []).filter(v => v.estado === 'activa').length;
-        lista.push({ id: 3, icon: 'ventanilla', color: '#34d399', msg: `${vents} ventanilla${vents !== 1 ? 's' : ''} activa${vents !== 1 ? 's' : ''}`, time: 'Sistema' });
+
+        if (user.rol === 'ADMINISTRADOR') {
+          const [turnos, ventRes] = await Promise.all([
+            api.get('/turnos'),
+            api.get('/ventanillas'),
+          ]);
+          const hoy = new Date().toISOString().split('T')[0];
+          const deHoy = (turnos.data || []).filter(t => {
+            const f = t.fecha || (t.createdAt ? new Date(t.createdAt).toISOString().split('T')[0] : '');
+            return f === hoy;
+          });
+          const total = deHoy.length;
+          if (total > 0) lista.push({ id: 1, icon: 'ticket', color: '#a78bfa', msg: `${total} turno${total !== 1 ? 's' : ''} emitido${total !== 1 ? 's' : ''} hoy`, time: 'Hoy' });
+          const esp = deHoy.filter(t => t.estado === 'ESPERA').length;
+          if (esp > 0) lista.push({ id: 2, icon: 'espera', color: '#fbbf24', msg: `${esp} turno${esp !== 1 ? 's' : ''} en espera`, time: 'Ahora' });
+          const vents = (ventRes.data || []).filter(v => v.estado === 'activa').length;
+          lista.push({ id: 3, icon: 'ventanilla', color: '#34d399', msg: `${vents} ventanilla${vents !== 1 ? 's' : ''} activa${vents !== 1 ? 's' : ''}`, time: 'Sistema' });
+          
+          // Verificar si hay ventanillas inactivas
+          const inactivas = (ventRes.data || []).filter(v => v.estado === 'inactiva');
+          if (inactivas.length > 0) {
+            lista.push({ 
+              id: 'admin_inactivas', 
+              icon: 'alerta', 
+              color: '#f87171', 
+              msg: `${inactivas.length} ventanilla${inactivas.length > 1 ? 's' : ''} inactiva${inactivas.length > 1 ? 's' : ''}`, 
+              time: 'Alerta' 
+            });
+          }
+        } else if (user.rol === 'OPERADOR') {
+          const [ventRes, turnosRes] = await Promise.all([
+            api.get('/ventanillas'),
+            api.get('/turnos')
+          ]);
+
+          const ventanillas = ventRes.data || [];
+          const misVentanillas = ventanillas.filter(v => 
+            (v.operador && String(v.operador._id || v.operador) === String(user._id)) ||
+            (user.ventanilla && String(v._id) === String(user.ventanilla._id || user.ventanilla))
+          );
+
+          // Comprobar si la ventanilla del operador está inactiva
+          const ventInactiva = misVentanillas.find(v => v.estado === 'inactiva');
+          if (ventInactiva) {
+            const nom = ventInactiva.nombre ? ` (${ventInactiva.nombre})` : ` Ventanilla ${ventInactiva.numero}`;
+            lista.push({
+              id: 'operador_ventanilla_inactiva',
+              icon: 'alerta',
+              color: '#f87171',
+              msg: `El administrador ha desactivado tu ventanilla${nom}. No puedes llamar turnos.`,
+              time: 'Inactiva'
+            });
+          }
+
+          // Comprobar si tiene turnos reasignados pendientes
+          const turnosHoy = (turnosRes.data || []).filter(t => t.estado === 'ESPERA');
+          const turnosReasignados = turnosHoy.filter(t => 
+            String(t.operadorAsignado?._id || t.operadorAsignado) === String(user._id)
+          );
+          if (turnosReasignados.length > 0) {
+            lista.push({
+              id: 'operador_reasignados',
+              icon: 'ticket',
+              color: '#eab308',
+              msg: `Tienes ${turnosReasignados.length} turno${turnosReasignados.length > 1 ? 's' : ''} reasignado${turnosReasignados.length > 1 ? 's' : ''} pendiente${turnosReasignados.length > 1 ? 's' : ''}`,
+              time: 'Prioritario'
+            });
+          }
+        }
+
         setNotifs(lista);
         setUnread(lista.length);
       } catch {}
     };
     fetch();
-    const interval = setInterval(fetch, 30000);
+    const interval = setInterval(fetch, 20000);
     return () => clearInterval(interval);
-  }, [user?.rol]);
+  }, [user]);
 
   const getRolColor = (rol) => {
     switch(rol) {
@@ -146,6 +201,7 @@ const Layout = ({ children }) => {
                           {n.icon === 'ticket'    && <Ticket   size={16} style={{ color: n.color }} />}
                           {n.icon === 'espera'    && <Bell     size={16} style={{ color: n.color }} />}
                           {n.icon === 'ventanilla'&& <Monitor  size={16} style={{ color: n.color }} />}
+                          {n.icon === 'alerta'    && <AlertTriangle size={16} style={{ color: n.color }} />}
                           {n.icon === 'usuario'   && <Users    size={16} style={{ color: n.color }} />}
                           {n.icon === 'success'   && <CheckCircle size={16} style={{ color: n.color }} />}
                         </div>

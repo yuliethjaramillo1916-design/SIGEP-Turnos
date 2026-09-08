@@ -217,6 +217,47 @@ exports.llamarSiguiente = async (req, res) => {
             return res.status(400).json({ message: 'Debe especificar su ventanilla para llamar un turno' });
         }
 
+        const Ventanilla = require('../models/Ventanilla');
+
+        // Buscar la ventanilla asociada al usuario u operador
+        let ventanillaDoc = null;
+        if (req.user.ventanilla) {
+            ventanillaDoc = await Ventanilla.findOne({ _id: req.user.ventanilla, entidadId: req.user.entidadId });
+        }
+        if (!ventanillaDoc) {
+            ventanillaDoc = await Ventanilla.findOne({ operador: req.user._id, entidadId: req.user.entidadId });
+        }
+        if (!ventanillaDoc && ventanilla) {
+            const matchNum = ventanilla.match(/\d+/);
+            if (matchNum) {
+                ventanillaDoc = await Ventanilla.findOne({ numero: matchNum[0], entidadId: req.user.entidadId });
+            }
+        }
+
+        // VALIDACIÓN DE VENTANILLA INACTIVA
+        if (ventanillaDoc && ventanillaDoc.estado === 'inactiva') {
+            const label = ventanillaDoc.nombre ? `${ventanillaDoc.nombre} (Ventanilla ${ventanillaDoc.numero})` : `Ventanilla ${ventanillaDoc.numero}`;
+            return res.status(403).json({
+                message: `Tu ventanilla (${label}) se encuentra inactiva. El administrador ha deshabilitado esta ventanilla y no puedes llamar turnos.`
+            });
+        }
+
+        // Resolver nombre descriptivo final de la ventanilla antes de la búsqueda
+        let ventanillaFinal = ventanilla;
+        if (ventanillaDoc) {
+            const nom = ventanillaDoc.nombre ? ventanillaDoc.nombre.trim() : '';
+            const num = ventanillaDoc.numero ? String(ventanillaDoc.numero).trim() : '';
+            if (!nom || /^(ventanilla|modulo|módulo)$/i.test(nom)) {
+                ventanillaFinal = num ? `Ventanilla ${num}` : 'Ventanilla 1';
+            } else if (num && nom.includes(num)) {
+                ventanillaFinal = nom;
+            } else {
+                ventanillaFinal = num ? `Ventanilla ${num} - ${nom}` : nom;
+            }
+        } else if (ventanillaFinal && /^\d+$/.test(ventanillaFinal.trim())) {
+            ventanillaFinal = `Ventanilla ${ventanillaFinal.trim()}`;
+        }
+
         const { fecha } = getLocalDateString();
 
         // 1. Si el operador ya tiene un turno "ATENDIENDO", finalizarlo automáticamente
@@ -294,26 +335,6 @@ exports.llamarSiguiente = async (req, res) => {
         const ahora = new Date();
         const creacion = new Date(siguienteTurno.createdAt);
         const diffSegundos = Math.max(0, Math.floor((ahora - creacion) / 1000));
-
-        // 4. Resolver nombre descriptivo de la ventanilla si viene genérico o sin número
-        let ventanillaFinal = ventanilla;
-        const Ventanilla = require('../models/Ventanilla');
-        if (!ventanillaFinal || ventanillaFinal.trim().toLowerCase() === 'ventanilla' || /^\d+$/.test(ventanillaFinal.trim())) {
-            const vObj = await Ventanilla.findOne({ operador: req.user._id, entidadId: req.user.entidadId });
-            if (vObj) {
-                const nom = vObj.nombre ? vObj.nombre.trim() : '';
-                const num = vObj.numero ? String(vObj.numero).trim() : '';
-                if (!nom || /^(ventanilla|modulo|módulo)$/i.test(nom)) {
-                    ventanillaFinal = num ? `Ventanilla ${num}` : 'Ventanilla 1';
-                } else if (num && nom.includes(num)) {
-                    ventanillaFinal = nom;
-                } else {
-                    ventanillaFinal = num ? `Ventanilla ${num} - ${nom}` : nom;
-                }
-            } else if (ventanillaFinal && /^\d+$/.test(ventanillaFinal.trim())) {
-                ventanillaFinal = `Ventanilla ${ventanillaFinal.trim()}`;
-            }
-        }
 
         siguienteTurno.estado = 'ATENDIENDO';
         siguienteTurno.usuarioAtencion = req.user._id;

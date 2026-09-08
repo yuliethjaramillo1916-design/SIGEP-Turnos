@@ -49,5 +49,12 @@ module.exports = {
             io.emit('turno_actualizado', turno);
             io.emit('cola_actualizada');
         }
+    },
+
+    emitVentanillaActualizada: (ventanilla) => {
+        if (io) {
+            io.emit('ventanilla_actualizada', ventanilla);
+        }
     }
 };
+

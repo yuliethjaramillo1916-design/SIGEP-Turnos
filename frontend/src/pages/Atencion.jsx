@@ -10,6 +10,7 @@ const Atencion = () => {
   // Estados de Configuración
   const [ventanilla, setVentanilla] = useState('');
   const [isVentanillaSet, setIsVentanillaSet] = useState(false);
+  const [isVentanillaInactiva, setIsVentanillaInactiva] = useState(false);
   const [ventanillasDisponibles, setVentanillasDisponibles] = useState([]);
   const [loadingVentanilla, setLoadingVentanilla] = useState(true);
   
@@ -80,28 +81,28 @@ const Atencion = () => {
       const lista = res.data || [];
       setVentanillasDisponibles(lista);
 
+      // Buscar ventanilla asignada al usuario directamente o por operador
+      let ventanillaAsignada = null;
+
       // Estrategia 1: el objeto user tiene el campo ventanilla (ObjectId) desde /auth/me
       if (user?.ventanilla) {
-        const ventanillaAsignada = lista.find(
+        ventanillaAsignada = lista.find(
           v => String(v._id) === String(user.ventanilla?._id || user.ventanilla)
         );
-        if (ventanillaAsignada) {
-          const nombreVentanilla = formatVentanillaLabel(ventanillaAsignada);
-          setVentanilla(nombreVentanilla);
-          setIsVentanillaSet(true);
-          setLoadingVentanilla(false);
-          return;
-        }
       }
 
       // Estrategia 2: buscar por operador asignado en la ventanilla
-      const ventanillaAsignada = lista.find(
-        v => v.operador && String(v.operador._id || v.operador) === String(user?._id)
-      );
+      if (!ventanillaAsignada && user?._id) {
+        ventanillaAsignada = lista.find(
+          v => v.operador && String(v.operador._id || v.operador) === String(user._id)
+        );
+      }
+
       if (ventanillaAsignada) {
         const nombreVentanilla = formatVentanillaLabel(ventanillaAsignada);
         setVentanilla(nombreVentanilla);
         setIsVentanillaSet(true);
+        setIsVentanillaInactiva(ventanillaAsignada.estado === 'inactiva');
         setLoadingVentanilla(false);
         return;
       }
@@ -114,7 +115,11 @@ const Atencion = () => {
         } else {
           setVentanilla(guardada);
           setIsVentanillaSet(true);
+          const vObj = lista.find(v => formatVentanillaLabel(v) === guardada);
+          setIsVentanillaInactiva(vObj?.estado === 'inactiva');
         }
+      } else {
+        setIsVentanillaInactiva(false);
       }
     } catch (err) {
       console.error('Error fetching ventanillas:', err);
@@ -181,6 +186,12 @@ const Atencion = () => {
         fetchTurnos();
       });
 
+      // Escuchar cambios en ventanillas (activación / desactivación por administrador)
+      socket.on('ventanilla_actualizada', () => {
+        console.log('⚡ Sincronizando estado de ventanillas en tiempo real...');
+        fetchVentanillas();
+      });
+
     } catch (err) {
       console.error('Error al inicializar Socket.io:', err);
       setSocketStatus('disconnected');
@@ -194,7 +205,8 @@ const Atencion = () => {
       pollingIntervalRef.current = setInterval(() => {
         console.log('🔄 Polling activo (fallback)...');
         fetchTurnos();
-      }, 4000);
+        fetchVentanillas();
+      }, 5000);
     }
   };
 
@@ -256,6 +268,8 @@ const Atencion = () => {
     e.preventDefault();
     if (ventanilla.trim() === '') return;
     localStorage.setItem(`ventanilla_${user?._id}`, ventanilla);
+    const vObj = ventanillasDisponibles.find(v => formatVentanillaLabel(v) === ventanilla);
+    setIsVentanillaInactiva(vObj?.estado === 'inactiva');
     setIsVentanillaSet(true);
   };
 
@@ -263,11 +277,16 @@ const Atencion = () => {
     localStorage.removeItem(`ventanilla_${user?._id}`);
     setIsVentanillaSet(false);
     setVentanilla('');
+    setIsVentanillaInactiva(false);
     setCurrentTurno(null);
   };
 
   // 1. Llamar al siguiente turno en cola (prioriza turnos reasignados automáticamente)
   const llamarSiguiente = async () => {
+    if (isVentanillaInactiva) {
+      alert('Tu ventanilla ha sido desactivada por el administrador. No puedes llamar turnos hasta que sea reactivada.');
+      return;
+    }
     try {
       const res = await api.post('/turnos/llamar-siguiente', { ventanilla });
       setCurrentTurno(res.data);
@@ -406,11 +425,18 @@ const Atencion = () => {
                   style={{ marginTop: '0.5rem', height: '45px', borderRadius: '10px' }}
                 >
                   <option value="">Seleccione una ventanilla...</option>
-                  {ventanillasDisponibles.map(v => (
-                    <option key={v._id} value={formatVentanillaLabel(v)}>
-                      {formatVentanillaLabel(v)}
-                    </option>
-                  ))}
+                  {ventanillasDisponibles.map(v => {
+                    const isInactiva = v.estado === 'inactiva';
+                    return (
+                      <option 
+                        key={v._id} 
+                        value={formatVentanillaLabel(v)}
+                        style={isInactiva ? { color: '#f87171' } : {}}
+                      >
+                        {formatVentanillaLabel(v)} {isInactiva ? '⚠️ (Inactiva)' : ''}
+                      </option>
+                    );
+                  })}
                   <option value="Ventanilla Personalizada">Ventanilla Personalizada (Escribir)...</option>
                 </select>
               ) : null}
@@ -467,8 +493,21 @@ const Atencion = () => {
               {socketStatus === 'connected' ? 'Tiempo Real' : 'Sondeo Fallback'}
             </span>
           </div>
-          <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginTop: '0.25rem' }}>
-            Gestiona la llamada y flujo de atención para <strong>{ventanilla}</strong>.
+          <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginTop: '0.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+            <span>Gestiona la llamada y flujo de atención para <strong>{ventanilla}</strong>.</span>
+            {isVentanillaInactiva && (
+              <span style={{ 
+                background: '#ef4444', 
+                color: '#ffffff', 
+                fontSize: '0.72rem', 
+                fontWeight: 800, 
+                padding: '0.15rem 0.55rem', 
+                borderRadius: '6px',
+                letterSpacing: '0.04em'
+              }}>
+                VENTANILLA INACTIVA
+              </span>
+            )}
           </p>
         </div>
 
@@ -478,6 +517,51 @@ const Atencion = () => {
           </button>
         )}
       </div>
+
+      {/* Banner de Advertencia: Ventanilla Inactiva por el Administrador */}
+      {isVentanillaInactiva && (
+        <div style={{
+          marginBottom: '1.5rem',
+          padding: '1.25rem 1.75rem',
+          background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.18) 0%, rgba(185, 28, 28, 0.28) 100%)',
+          border: '1.5px solid rgba(239, 68, 68, 0.6)',
+          borderRadius: '16px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: '1rem',
+          boxShadow: '0 8px 25px rgba(239, 68, 68, 0.2)'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+            <div style={{
+              width: '48px', height: '48px', borderRadius: '12px',
+              background: 'linear-gradient(135deg, #ef4444, #b91c1c)',
+              color: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center',
+              boxShadow: '0 4px 14px rgba(239, 68, 68, 0.4)', flexShrink: 0
+            }}>
+              <XCircle size={26} />
+            </div>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
+                <span style={{ fontWeight: 800, color: '#fca5a5', fontSize: '1.1rem' }}>
+                  VENTANILLA INACTIVA
+                </span>
+                <span style={{
+                  background: '#ef4444', color: '#ffffff',
+                  fontSize: '0.72rem', fontWeight: 800, padding: '0.15rem 0.55rem', borderRadius: '6px',
+                  letterSpacing: '0.04em'
+                }}>
+                  DESHABILITADA POR EL ADMINISTRADOR
+                </span>
+              </div>
+              <div style={{ color: 'rgba(255,255,255,0.9)', fontSize: '0.9rem', marginTop: '0.35rem', lineHeight: '1.45' }}>
+                El administrador ha dejado inactiva tu ventanilla (<strong>{ventanilla}</strong>). Puedes ingresar y revisar el sistema normalmente, pero <strong>no puedes llamar ni atender turnos</strong> hasta que el administrador reactive tu ventanilla.
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Banner de Notificación de Turno Reasignado Pendiente */}
       {turnoReasignadoPendiente && (
@@ -520,7 +604,7 @@ const Atencion = () => {
                 Turno <strong style={{ color: '#fff', fontSize: '1rem' }}>{turnoReasignadoPendiente.codigoTurno}</strong> ({turnoReasignadoPendiente.tramite?.nombre}).
                 {currentTurno
                   ? ' Será llamado automáticamente cuando finalices tu atención actual.'
-                  : ' ¡Está listo para ser atendido! Haz clic para iniciar su llamado ahora.'}
+                  : (isVentanillaInactiva ? ' (Tu ventanilla está inactiva; reactívala para poder atender este turno).' : ' ¡Está listo para ser atendido! Haz clic para iniciar su llamado ahora.')}
                 {turnoReasignadoPendiente.motivoReasignacion && (
                   <span style={{ color: '#fde047', fontStyle: 'italic', display: 'block', marginTop: '0.15rem' }}>
                     Motivo: "{turnoReasignadoPendiente.motivoReasignacion}"
@@ -533,10 +617,11 @@ const Atencion = () => {
           {!currentTurno && (
             <button 
               onClick={llamarSiguiente}
+              disabled={isVentanillaInactiva}
               className="btn btn-primary"
               style={{
-                background: 'linear-gradient(135deg, #eab308, #ca8a04)',
-                color: '#0f172a',
+                background: isVentanillaInactiva ? 'rgba(255,255,255,0.1)' : 'linear-gradient(135deg, #eab308, #ca8a04)',
+                color: isVentanillaInactiva ? 'rgba(255,255,255,0.4)' : '#0f172a',
                 borderColor: 'transparent',
                 fontWeight: 800,
                 padding: '0.75rem 1.5rem',
@@ -544,11 +629,16 @@ const Atencion = () => {
                 display: 'flex',
                 alignItems: 'center',
                 gap: '0.5rem',
-                boxShadow: '0 4px 15px rgba(234, 179, 8, 0.3)',
-                cursor: 'pointer'
+                boxShadow: isVentanillaInactiva ? 'none' : '0 4px 15px rgba(234, 179, 8, 0.3)',
+                cursor: isVentanillaInactiva ? 'not-allowed' : 'pointer',
+                opacity: isVentanillaInactiva ? 0.6 : 1
               }}
             >
-              <Play size={18} fill="#0f172a" /> Atender Turno Reasignado
+              {isVentanillaInactiva ? (
+                <><XCircle size={18} /> Ventanilla Inactiva</>
+              ) : (
+                <><Play size={18} fill="#0f172a" /> Atender Turno Reasignado</>
+              )}
             </button>
           )}
         </div>
@@ -694,17 +784,27 @@ const Atencion = () => {
               <button 
                 className="btn btn-primary" 
                 onClick={llamarSiguiente}
-                disabled={espera.length === 0}
+                disabled={espera.length === 0 || isVentanillaInactiva}
                 style={{ 
                   padding: '1rem 2.5rem', 
                   fontSize: '1.1rem', 
                   borderRadius: '14px',
-                  boxShadow: '0 10px 15px -3px rgba(37, 99, 235, 0.3)',
-                  opacity: espera.length === 0 ? 0.6 : 1,
-                  cursor: espera.length === 0 ? 'not-allowed' : 'pointer'
+                  boxShadow: isVentanillaInactiva ? 'none' : '0 10px 15px -3px rgba(37, 99, 235, 0.3)',
+                  background: isVentanillaInactiva ? 'rgba(239, 68, 68, 0.2)' : undefined,
+                  borderColor: isVentanillaInactiva ? 'rgba(239, 68, 68, 0.4)' : undefined,
+                  color: isVentanillaInactiva ? '#fca5a5' : undefined,
+                  opacity: (espera.length === 0 || isVentanillaInactiva) ? 0.6 : 1,
+                  cursor: (espera.length === 0 || isVentanillaInactiva) ? 'not-allowed' : 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.75rem'
                 }}
               >
-                <Play size={22} /> Llamar Siguiente Turno
+                {isVentanillaInactiva ? (
+                  <><XCircle size={22} /> Ventanilla Inactiva (Bloqueado)</>
+                ) : (
+                  <><Play size={22} /> Llamar Siguiente Turno</>
+                )}
               </button>
             </div>
           )}
@@ -830,9 +930,15 @@ const Atencion = () => {
                     .map(v => {
                       const vLabel = formatVentanillaLabel(v);
                       const opNombre = v.operador?.nombre ? ` (${v.operador.nombre} ${v.operador.apellido || ''})` : '';
+                      const isInactiva = v.estado === 'inactiva';
                       return (
-                        <option key={v._id} value={vLabel}>
-                          {vLabel}{opNombre}
+                        <option 
+                          key={v._id} 
+                          value={vLabel}
+                          disabled={isInactiva}
+                          style={isInactiva ? { color: '#f87171', background: '#18111e' } : {}}
+                        >
+                          {vLabel}{opNombre}{isInactiva ? ' — [INACTIVA - No disponible]' : ''}
                         </option>
                       );
                     })

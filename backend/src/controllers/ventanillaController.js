@@ -1,5 +1,6 @@
 const Ventanilla = require('../models/Ventanilla');
 const { validarLimite } = require('../services/limitesService');
+const socketService = require('../services/socketService');
 
 exports.getVentanillas = async (req, res) => {
     try {
@@ -74,6 +75,9 @@ exports.updateVentanilla = async (req, res) => {
             }
         }
 
+        // Notificar en tiempo real a operadores y usuarios
+        socketService.emitVentanillaActualizada(ventanillaActualizada);
+
         res.status(200).json(ventanillaActualizada);
     } catch (error) {
         res.status(400).json({ message: error.message });
@@ -88,6 +92,9 @@ exports.deleteVentanilla = async (req, res) => {
         // Desvincular la ventanilla eliminada de cualquier usuario que la tuviera asignada
         const Usuario = require('../models/Usuario');
         await Usuario.updateMany({ ventanilla: req.params.id, entidadId: req.user.entidadId }, { ventanilla: null });
+
+        // Notificar eliminación en tiempo real
+        socketService.emitVentanillaActualizada({ _id: req.params.id, eliminado: true, entidadId: req.user.entidadId });
 
         res.status(200).json({ message: 'Ventanilla eliminada' });
     } catch (error) {
