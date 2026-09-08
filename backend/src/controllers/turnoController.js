@@ -57,7 +57,11 @@ exports.getTurnosPublico = async (req, res) => {
             estado: { $in: ['ESPERA', 'ATENDIENDO', 'PAUSADO'] }
         })
         .populate('tramite')
-        .populate('usuarioAtencion', 'nombre apellido')
+        .populate({
+            path: 'usuarioAtencion',
+            select: 'nombre apellido ventanilla',
+            populate: { path: 'ventanilla', select: 'numero nombre' }
+        })
         .sort({ updatedAt: -1 });
 
         // Filtrar y estructurar para la pantalla pública
@@ -253,17 +257,40 @@ exports.llamarSiguiente = async (req, res) => {
         const creacion = new Date(siguienteTurno.createdAt);
         const diffSegundos = Math.max(0, Math.floor((ahora - creacion) / 1000));
 
-        // 4. Actualizar estado y asignar al operador
+        // 4. Resolver nombre descriptivo de la ventanilla si viene genérico o sin número
+        let ventanillaFinal = ventanilla;
+        const Ventanilla = require('../models/Ventanilla');
+        if (!ventanillaFinal || ventanillaFinal.trim().toLowerCase() === 'ventanilla' || /^\d+$/.test(ventanillaFinal.trim())) {
+            const vObj = await Ventanilla.findOne({ operador: req.user._id, entidadId: req.user.entidadId });
+            if (vObj) {
+                const nom = vObj.nombre ? vObj.nombre.trim() : '';
+                const num = vObj.numero ? String(vObj.numero).trim() : '';
+                if (!nom || /^(ventanilla|modulo|módulo)$/i.test(nom)) {
+                    ventanillaFinal = num ? `Ventanilla ${num}` : 'Ventanilla 1';
+                } else if (num && nom.includes(num)) {
+                    ventanillaFinal = nom;
+                } else {
+                    ventanillaFinal = num ? `Ventanilla ${num} - ${nom}` : nom;
+                }
+            } else if (ventanillaFinal && /^\d+$/.test(ventanillaFinal.trim())) {
+                ventanillaFinal = `Ventanilla ${ventanillaFinal.trim()}`;
+            }
+        }
+
         siguienteTurno.estado = 'ATENDIENDO';
         siguienteTurno.usuarioAtencion = req.user._id;
-        siguienteTurno.ventanilla = ventanilla;
+        siguienteTurno.ventanilla = ventanillaFinal || 'Ventanilla 1';
         siguienteTurno.tiempoEspera = diffSegundos;
 
         await siguienteTurno.save();
 
         const turnoActualizado = await Turno.findById(siguienteTurno._id)
             .populate('tramite')
-            .populate('usuarioAtencion', 'nombre apellido');
+            .populate({
+                path: 'usuarioAtencion',
+                select: 'nombre apellido ventanilla',
+                populate: { path: 'ventanilla', select: 'numero nombre' }
+            });
 
         // Notificar por websockets el llamado
         socketService.emitTurnoLlamado(turnoActualizado);

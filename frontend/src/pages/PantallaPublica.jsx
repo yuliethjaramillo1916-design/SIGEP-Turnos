@@ -66,10 +66,43 @@ const PantallaPublica = () => {
     } catch {}
   };
 
+  // Formatear e inferir la ventanilla adecuada para visualización y locución de voz
+  const getVentanillaDisplay = (turno) => {
+    if (!turno) return '';
+    let v = turno.ventanilla ? String(turno.ventanilla).trim() : '';
+
+    // Si viene la ventanilla poblada a través de usuarioAtencion
+    const vObj = turno.usuarioAtencion?.ventanilla;
+    if (vObj) {
+      const num = vObj.numero ? String(vObj.numero).trim() : '';
+      const nom = vObj.nombre ? String(vObj.nombre).trim() : '';
+      if (!v || v.toLowerCase() === 'ventanilla' || /^\d+$/.test(v)) {
+        if (!nom || /^(ventanilla|modulo|módulo)$/i.test(nom)) {
+          return num ? `Ventanilla ${num}` : (nom || 'Ventanilla 1');
+        }
+        if (num && nom.includes(num)) return nom;
+        return num ? `Ventanilla ${num} - ${nom}` : nom;
+      }
+    }
+
+    // Si solo es un número (ej. "1", "02")
+    if (/^\d+$/.test(v)) {
+      return `Ventanilla ${v}`;
+    }
+
+    // Si es solo la palabra genérica "Ventanilla" o "Modulo" sin número
+    if (/^(ventanilla|modulo|módulo)$/i.test(v)) {
+      return 'Ventanilla 1';
+    }
+
+    return v || 'Ventanilla 1';
+  };
+
   const speakTurno = (turno) => {
     try {
       window.speechSynthesis.cancel();
-      const texto = `Turno ${turno.codigoTurno.split('').join(' ')}, favor acercarse a ${turno.ventanilla || 'la ventanilla asignada'}`;
+      const ventanillaTexto = getVentanillaDisplay(turno);
+      const texto = `Turno ${turno.codigoTurno.split('').join(' ')}, favor acercarse a ${ventanillaTexto}`;
       const utt = new SpeechSynthesisUtterance(texto);
       utt.lang = 'es-ES'; utt.rate = 0.9; utt.pitch = 1.0; utt.volume = 1.0;
       const doSpeak = () => {
@@ -338,17 +371,39 @@ const PantallaPublica = () => {
                 {currentTurno.tramite?.nombre}
               </div>
 
-              {/* Ventanilla */}
-              {currentTurno.ventanilla && (
-                <div style={{
-                  display: 'inline-flex', alignItems: 'center', gap: '0.75rem',
-                  padding: '1rem 3rem', borderRadius: '20px',
-                  background: 'linear-gradient(135deg, #7c3aed, #6d28d9)',
-                  boxShadow: '0 12px 40px rgba(124,58,237,0.5)',
+              {/* Ventanilla / Módulo de Atención */}
+              <div style={{
+                display: 'inline-flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                padding: '1.25rem 3.5rem',
+                borderRadius: '24px',
+                background: 'linear-gradient(135deg, #7c3aed 0%, #6d28d9 60%, #5b21b6 100%)',
+                boxShadow: '0 16px 45px rgba(124,58,237,0.5), inset 0 1px 1px rgba(255,255,255,0.25)',
+                border: '1px solid rgba(255,255,255,0.18)',
+                animation: blinking ? 'pulseScale 1.2s ease-in-out infinite' : 'none',
+              }}>
+                <span style={{
+                  fontSize: '0.85rem',
+                  fontWeight: 800,
+                  letterSpacing: '0.18em',
+                  textTransform: 'uppercase',
+                  color: '#ddd6fe',
+                  marginBottom: '0.35rem',
                 }}>
-                  <span style={{ fontSize: '2.5rem', fontWeight: 900, color: 'white', lineHeight: 1 }}>{currentTurno.ventanilla}</span>
-                </div>
-              )}
+                  DIRÍJASE A
+                </span>
+                <span style={{
+                  fontSize: 'clamp(2.2rem, 4.5vw, 3.2rem)',
+                  fontWeight: 950,
+                  color: 'white',
+                  lineHeight: 1.1,
+                  letterSpacing: '-0.02em',
+                  textShadow: '0 2px 10px rgba(0,0,0,0.3)',
+                }}>
+                  {getVentanillaDisplay(currentTurno)}
+                </span>
+              </div>
             </div>
           ) : (
             <div style={{ textAlign: 'center', position: 'relative', zIndex: 1 }}>

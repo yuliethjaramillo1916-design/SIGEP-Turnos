@@ -53,6 +53,20 @@ const Atencion = () => {
     };
   }, [isVentanillaSet, ventanilla]);
 
+  // Helper para dar formato consistente y descriptivo a la ventanilla
+  const formatVentanillaLabel = (v) => {
+    if (!v) return '';
+    const num = v.numero ? String(v.numero).trim() : '';
+    const nom = v.nombre ? String(v.nombre).trim() : '';
+    if (!nom || /^(ventanilla|modulo|módulo)$/i.test(nom)) {
+      return num ? `Ventanilla ${num}` : (nom || 'Ventanilla');
+    }
+    if (num && nom.includes(num)) {
+      return nom;
+    }
+    return num ? `Ventanilla ${num} - ${nom}` : nom;
+  };
+
   const fetchVentanillas = async () => {
     setLoadingVentanilla(true);
     try {
@@ -60,23 +74,13 @@ const Atencion = () => {
       const lista = res.data || [];
       setVentanillasDisponibles(lista);
 
-      console.log('=== DEBUG VENTANILLA ===');
-      console.log('user._id:', user?._id);
-      console.log('user.ventanilla:', user?.ventanilla);
-      console.log('ventanillas en BD:', lista.map(v => ({
-        _id: v._id,
-        nombre: v.nombre,
-        operador_id: v.operador?._id || v.operador
-      })));
-
       // Estrategia 1: el objeto user tiene el campo ventanilla (ObjectId) desde /auth/me
       if (user?.ventanilla) {
         const ventanillaAsignada = lista.find(
           v => String(v._id) === String(user.ventanilla?._id || user.ventanilla)
         );
-        console.log('Estrategia 1 - ventanillaAsignada:', ventanillaAsignada);
         if (ventanillaAsignada) {
-          const nombreVentanilla = ventanillaAsignada.nombre || `Ventanilla ${ventanillaAsignada.numero}`;
+          const nombreVentanilla = formatVentanillaLabel(ventanillaAsignada);
           setVentanilla(nombreVentanilla);
           setIsVentanillaSet(true);
           setLoadingVentanilla(false);
@@ -88,9 +92,8 @@ const Atencion = () => {
       const ventanillaAsignada = lista.find(
         v => v.operador && String(v.operador._id || v.operador) === String(user?._id)
       );
-      console.log('Estrategia 2 - ventanillaAsignada:', ventanillaAsignada);
       if (ventanillaAsignada) {
-        const nombreVentanilla = ventanillaAsignada.nombre || `Ventanilla ${ventanillaAsignada.numero}`;
+        const nombreVentanilla = formatVentanillaLabel(ventanillaAsignada);
         setVentanilla(nombreVentanilla);
         setIsVentanillaSet(true);
         setLoadingVentanilla(false);
@@ -99,10 +102,13 @@ const Atencion = () => {
 
       // Estrategia 3: localStorage por usuario (fallback manual)
       const guardada = localStorage.getItem(`ventanilla_${user?._id}`);
-      console.log('Estrategia 3 - localStorage:', guardada);
       if (guardada) {
-        setVentanilla(guardada);
-        setIsVentanillaSet(true);
+        if (/^(ventanilla|modulo|módulo)$/i.test(guardada.trim())) {
+          localStorage.removeItem(`ventanilla_${user?._id}`);
+        } else {
+          setVentanilla(guardada);
+          setIsVentanillaSet(true);
+        }
       }
     } catch (err) {
       console.error('Error fetching ventanillas:', err);
@@ -349,8 +355,8 @@ const Atencion = () => {
                 >
                   <option value="">Seleccione una ventanilla...</option>
                   {ventanillasDisponibles.map(v => (
-                    <option key={v._id} value={v.nombre || `Ventanilla ${v.numero}`}>
-                      {v.nombre || `Ventanilla ${v.numero}`}
+                    <option key={v._id} value={formatVentanillaLabel(v)}>
+                      {formatVentanillaLabel(v)}
                     </option>
                   ))}
                   <option value="Ventanilla Personalizada">Ventanilla Personalizada (Escribir)...</option>
