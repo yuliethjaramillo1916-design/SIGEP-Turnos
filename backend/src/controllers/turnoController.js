@@ -236,7 +236,9 @@ exports.llamarSiguiente = async (req, res) => {
 
         // VALIDACIÓN DE VENTANILLA INACTIVA
         if (ventanillaDoc && ventanillaDoc.estado === 'inactiva') {
-            const label = ventanillaDoc.nombre ? `${ventanillaDoc.nombre} (Ventanilla ${ventanillaDoc.numero})` : `Ventanilla ${ventanillaDoc.numero}`;
+            const label = ventanillaDoc.nombre && !/^(ventanilla|modulo|módulo)$/i.test(ventanillaDoc.nombre.trim())
+                ? `${ventanillaDoc.nombre} (Ventanilla ${ventanillaDoc.numero})`
+                : `Ventanilla ${ventanillaDoc.numero}`;
             return res.status(403).json({
                 message: `Tu ventanilla (${label}) se encuentra inactiva. El administrador ha deshabilitado esta ventanilla y no puedes llamar turnos.`
             });
