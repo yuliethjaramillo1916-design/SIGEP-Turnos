@@ -246,15 +246,6 @@ const Ventanillas = () => {
             borderLeft: `4px solid ${v.estado === 'activa' ? '#34d399' : 'rgba(255,255,255,0.12)'}`,
             position: 'relative', transition: 'box-shadow 0.2s',
           }}>
-            {/* Estado badge */}
-            {v.estado === 'activa' && (
-              <div style={{ position: 'absolute', top: '1.25rem', right: '1.25rem' }}>
-                <span className="badge badge-success" style={{ fontSize: '0.75rem', fontWeight: 700 }}>
-                  ACTIVA
-                </span>
-              </div>
-            )}
-
             {/* Número y Nombre */}
             <div style={{
               background: v.estado === 'activa' ? 'rgba(52,211,153,0.08)' : 'rgba(255,255,255,0.04)',
