@@ -247,11 +247,13 @@ const Ventanillas = () => {
             position: 'relative', transition: 'box-shadow 0.2s',
           }}>
             {/* Estado badge */}
-            <div style={{ position: 'absolute', top: '1.25rem', right: '1.25rem' }}>
-              <span className={`badge badge-${v.estado === 'activa' ? 'success' : 'danger'}`} style={{ fontSize: '0.75rem', fontWeight: 700 }}>
-                {v.estado === 'activa' ? 'ACTIVA' : 'INACTIVA'}
-              </span>
-            </div>
+            {v.estado === 'activa' && (
+              <div style={{ position: 'absolute', top: '1.25rem', right: '1.25rem' }}>
+                <span className="badge badge-success" style={{ fontSize: '0.75rem', fontWeight: 700 }}>
+                  ACTIVA
+                </span>
+              </div>
+            )}
 
             {/* Número y Nombre */}
             <div style={{
