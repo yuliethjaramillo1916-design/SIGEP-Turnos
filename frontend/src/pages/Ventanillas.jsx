@@ -243,23 +243,23 @@ const Ventanillas = () => {
         
         {filteredVentanillas.map((v) => (
           <div key={v._id} className="card" style={{
-            borderLeft: `4px solid ${v.estado === 'activa' ? '#34d399' : 'rgba(255,255,255,0.12)'}`,
+            borderLeft: `4px solid ${v.estado === 'activa' ? '#34d399' : '#ef4444'}`,
             position: 'relative', transition: 'box-shadow 0.2s',
           }}>
             {/* Número y Nombre */}
             <div style={{
-              background: v.estado === 'activa' ? 'rgba(52,211,153,0.08)' : 'rgba(255,255,255,0.04)',
+              background: v.estado === 'activa' ? 'rgba(52,211,153,0.08)' : 'rgba(239,68,68,0.08)',
               borderRadius: '10px', padding: '1rem', marginBottom: '1rem',
               display: 'flex', alignItems: 'center', gap: '0.75rem',
-              border: `1px solid ${v.estado === 'activa' ? 'rgba(52,211,153,0.15)' : 'rgba(255,255,255,0.06)'}`,
+              border: `1px solid ${v.estado === 'activa' ? 'rgba(52,211,153,0.15)' : 'rgba(239,68,68,0.2)'}`,
             }}>
               <div style={{
-                background: v.estado === 'activa' ? 'linear-gradient(135deg, #059669, #10b981)' : 'rgba(255,255,255,0.12)',
+                background: v.estado === 'activa' ? 'linear-gradient(135deg, #059669, #10b981)' : 'linear-gradient(135deg, #dc2626, #ef4444)',
                 color: 'white', fontWeight: 800, fontSize: '1.25rem',
                 width: '48px', height: '48px', borderRadius: '10px',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 flexShrink: 0,
-                boxShadow: v.estado === 'activa' ? '0 4px 12px rgba(5,150,105,0.35)' : 'none',
+                boxShadow: v.estado === 'activa' ? '0 4px 12px rgba(5,150,105,0.35)' : '0 4px 12px rgba(239,68,68,0.35)',
               }}>
                 {v.numero}
               </div>
