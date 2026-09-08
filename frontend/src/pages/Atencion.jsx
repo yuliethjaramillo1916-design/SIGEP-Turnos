@@ -23,6 +23,7 @@ const Atencion = () => {
   // Estados para reasignación y notificación de turnos
   const [showTransferModal, setShowTransferModal] = useState(false);
   const [targetTramite, setTargetTramite] = useState('');
+  const [targetVentanilla, setTargetVentanilla] = useState('');
   const [targetOperador, setTargetOperador] = useState('');
   const [targetMotivo, setTargetMotivo] = useState('');
   const [operadoresDisponibles, setOperadoresDisponibles] = useState([]);
@@ -197,6 +198,17 @@ const Atencion = () => {
     }
   };
 
+  // Helper para verificar si un turno en espera está asignado a este operador o su ventanilla
+  const isTurnoMio = (t) => {
+    if (!t) return false;
+    const opId = t.operadorAsignado?._id || t.operadorAsignado;
+    if (opId && String(opId) === String(user?._id)) return true;
+    const vDestinoId = t.ventanillaDestino?._id || t.ventanillaDestino;
+    const miVId = user?.ventanilla?._id || user?.ventanilla;
+    if (vDestinoId && miVId && String(vDestinoId) === String(miVId)) return true;
+    return false;
+  };
+
   const fetchTurnos = async () => {
     try {
       const response = await api.get('/turnos');
@@ -214,20 +226,17 @@ const Atencion = () => {
       };
       const enEsperaHoy = allTurnos.filter(t => t.estado === 'ESPERA' && normFecha(t) === hoyISO);
 
-      // Detectar si hay turno reasignado a este operador
-      const reasignadoAMi = enEsperaHoy.find(t => {
-        const opId = t.operadorAsignado?._id || t.operadorAsignado;
-        return opId && String(opId) === String(user?._id);
-      });
+      // Detectar si hay turno reasignado a este operador o a su ventanilla
+      const reasignadoAMi = enEsperaHoy.find(isTurnoMio);
       setTurnoReasignadoPendiente(reasignadoAMi || null);
 
       // Ordenar fila de espera:
-      // 1. Reasignados a este operador
+      // 1. Reasignados a este operador / ventanilla
       // 2. Prioritarios
       // 3. Normales
       const ordenados = [...enEsperaHoy].sort((a, b) => {
-        const aMio = (a.operadorAsignado?._id || a.operadorAsignado) === user?._id;
-        const bMio = (b.operadorAsignado?._id || b.operadorAsignado) === user?._id;
+        const aMio = isTurnoMio(a);
+        const bMio = isTurnoMio(b);
         if (aMio && !bMio) return -1;
         if (!aMio && bMio) return 1;
         if (a.prioridad === 'PRIORITARIO' && b.prioridad !== 'PRIORITARIO') return -1;
@@ -327,18 +336,18 @@ const Atencion = () => {
   // 6. Transferir o Reasignar turno
   const transferirTurno = async (e) => {
     e.preventDefault();
-    if (!targetOperador && !targetTramite) {
-      return alert('Debe seleccionar un operador de destino o un nuevo trámite');
+    if (!targetVentanilla && !targetTramite) {
+      return alert('Debe seleccionar una ventanilla de destino o un nuevo trámite');
     }
     try {
       await api.put(`/turnos/${currentTurno._id}/transferir`, {
         nuevoTramiteId: targetTramite || undefined,
-        operadorDestinoId: targetOperador || undefined,
+        ventanillaDestinoId: targetVentanilla || undefined,
         motivo: targetMotivo || undefined
       });
       setShowTransferModal(false);
       setTargetTramite('');
-      setTargetOperador('');
+      setTargetVentanilla('');
       setTargetMotivo('');
       setCurrentTurno(null);
       fetchTurnos();
@@ -651,7 +660,10 @@ const Atencion = () => {
                 <button className="btn btn-outline" onClick={() => {
                     setTargetTramite(currentTurno.tramite?._id || '');
                     setTargetOperador('');
+                    setTargetVentanilla('');
                     setTargetMotivo('');
+                    fetchVentanillas();
+                    fetchOperadores();
                     setShowTransferModal(true);
                   }} style={{ padding: '0.75rem 1.25rem', fontSize: '1rem', borderRadius: '12px', color: '#a78bfa', borderColor: 'rgba(167,139,250,0.3)', background: 'rgba(124,58,237,0.08)' }}>
                   <RefreshCw size={20} /> Reasignar Trámite
@@ -804,26 +816,45 @@ const Atencion = () => {
             </p>
 
             <form onSubmit={transferirTurno}>
-              {/* Selector de Operador de Destino */}
+              {/* Selector de Ventanilla / Operador de Destino */}
               <div className="form-group" style={{ marginBottom: '1.25rem' }}>
-                <label style={{ fontWeight: 600, fontSize: '0.85rem', color: 'rgba(255,255,255,0.7)' }}>Operador / Ventanilla de Destino</label>
+                <label style={{ fontWeight: 600, fontSize: '0.85rem', color: 'rgba(255,255,255,0.7)' }}>
+                  Ventanilla / Operador de Destino
+                </label>
                 <select 
-                  value={targetOperador} 
-                  onChange={(e) => setTargetOperador(e.target.value)}
+                  value={targetVentanilla} 
+                  onChange={(e) => setTargetVentanilla(e.target.value)}
                   style={{ marginTop: '0.4rem', height: '44px', borderRadius: '10px', width: '100%', background: '#13111c', border: '1px solid rgba(255,255,255,0.15)', color: 'white', padding: '0 0.75rem' }}
                 >
-                  <option value="">Seleccione un operador específico (opcional)...</option>
-                  {operadoresDisponibles
-                    .filter(op => String(op._id) !== String(user?._id))
-                    .map(op => (
-                      <option key={op._id} value={op._id}>
-                        {op.nombre} {op.apellido} {op.ventanilla ? `— ${op.ventanilla.nombre || `Ventanilla ${op.ventanilla.numero}`}` : '— (Sin ventanilla)'}
-                      </option>
-                    ))
-                  }
+                  <option value="">Seleccione una ventanilla de destino...</option>
+                  {ventanillasDisponibles && ventanillasDisponibles.length > 0 ? (
+                    ventanillasDisponibles
+                      .filter(v => !v.estado || String(v.estado).toLowerCase() === 'activa')
+                      .map(v => {
+                        const op = v.operador;
+                        const esMiVentanilla = (op && String(op._id || op) === String(user?._id)) ||
+                                               (user?.ventanilla && String(user.ventanilla?._id || user.ventanilla) === String(v._id));
+                        if (esMiVentanilla) return null;
+                        const nomVentanilla = formatVentanillaLabel(v);
+                        const opTexto = op ? `(${op.nombre} ${op.apellido})` : '(Disponible)';
+                        return (
+                          <option key={v._id} value={v._id}>
+                            {nomVentanilla} — {opTexto}
+                          </option>
+                        );
+                      })
+                  ) : (
+                    operadoresDisponibles
+                      .filter(op => String(op._id) !== String(user?._id))
+                      .map(op => (
+                        <option key={op._id} value={op.ventanilla?._id || op._id}>
+                          {op.ventanilla ? formatVentanillaLabel(op.ventanilla) : 'Ventanilla'} — ({op.nombre} {op.apellido})
+                        </option>
+                      ))
+                  )}
                 </select>
                 <small style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.75rem', display: 'block', marginTop: '0.3rem' }}>
-                  Si seleccionas un operador, el turno se le reservará exclusivamente a él.
+                  El turno será transferido a esta ventanilla con prioridad máxima de llamado.
                 </small>
               </div>
 

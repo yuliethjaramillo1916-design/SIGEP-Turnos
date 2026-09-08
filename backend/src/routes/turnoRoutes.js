@@ -9,12 +9,11 @@ router.get('/publico', turnoController.getTurnosPublico);
 // Todas las demás rutas requieren autenticación
 router.use(protect);
 
+// Flujos de operadores y atención de ventanilla
+router.get('/operadores-disponibles', authorize('OPERADOR', 'ADMINISTRADOR'), turnoController.getOperadoresDisponibles);
 router.get('/', turnoController.getTurnos);
 router.get('/:id', turnoController.getTurnoById);
 router.post('/', authorize('VIGILANTE', 'ADMINISTRADOR'), turnoController.createTurno); // Generar turno (Vigilante/Admin/etc)
-
-// Flujos de operadores y atención de ventanilla
-router.get('/operadores-disponibles', authorize('OPERADOR', 'ADMINISTRADOR'), turnoController.getOperadoresDisponibles);
 router.post('/llamar-siguiente', authorize('OPERADOR', 'ADMINISTRADOR'), turnoController.llamarSiguiente);
 router.put('/:id/finalizar', authorize('OPERADOR', 'ADMINISTRADOR'), turnoController.finalizarTurno);
 router.put('/:id/pausar', authorize('OPERADOR', 'ADMINISTRADOR'), turnoController.pausarTurno);
