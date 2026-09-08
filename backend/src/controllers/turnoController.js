@@ -34,6 +34,8 @@ exports.getTurnos = async (req, res) => {
         const turnos = await Turno.find(query)
             .populate('tramite')
             .populate('usuarioAtencion', 'nombre apellido email rol')
+            .populate('operadorAsignado', 'nombre apellido email')
+            .populate('operadorReasigno', 'nombre apellido email')
             .sort({ createdAt: -1 });
 
         res.status(200).json(turnos);
@@ -231,20 +233,41 @@ exports.llamarSiguiente = async (req, res) => {
         }
 
         // 2. Buscar el siguiente turno en cola ('ESPERA') de hoy
-        // Criterio de prioridad estricto: PRIORITARIO primero, luego NORMAL. Y por fecha de creación (FIFO)
+        // PRIORIDAD 1 (MÁXIMA): Turnos reasignados específicamente a este operador (FIFO)
         let siguienteTurno = await Turno.findOne({
             fecha: fecha,
             estado: 'ESPERA',
-            prioridad: 'PRIORITARIO',
+            operadorAsignado: req.user._id,
             entidadId: req.user.entidadId
         }).populate('tramite').sort({ createdAt: 1 });
 
+        // PRIORIDAD 2: Turno PRIORITARIO general (que no pertenezca exclusivamente a otro operador)
+        if (!siguienteTurno) {
+            siguienteTurno = await Turno.findOne({
+                fecha: fecha,
+                estado: 'ESPERA',
+                prioridad: 'PRIORITARIO',
+                entidadId: req.user.entidadId,
+                $or: [
+                    { operadorAsignado: null },
+                    { operadorAsignado: { $exists: false } },
+                    { operadorAsignado: req.user._id }
+                ]
+            }).populate('tramite').sort({ createdAt: 1 });
+        }
+
+        // PRIORIDAD 3: Turno NORMAL general (que no pertenezca exclusivamente a otro operador)
         if (!siguienteTurno) {
             siguienteTurno = await Turno.findOne({
                 fecha: fecha,
                 estado: 'ESPERA',
                 prioridad: 'NORMAL',
-                entidadId: req.user.entidadId
+                entidadId: req.user.entidadId,
+                $or: [
+                    { operadorAsignado: null },
+                    { operadorAsignado: { $exists: false } },
+                    { operadorAsignado: req.user._id }
+                ]
             }).populate('tramite').sort({ createdAt: 1 });
         }
 
@@ -423,42 +446,83 @@ exports.cancelarTurno = async (req, res) => {
     }
 };
 
-// @desc    Transferir/Reasignar turno a otro trámite (Operador)
+// @desc    Obtener lista de operadores activos para reasignación
+// @route   GET /api/turnos/operadores-disponibles
+// @access  Privado (OPERADOR, ADMINISTRADOR)
+exports.getOperadoresDisponibles = async (req, res) => {
+    try {
+        const Usuario = require('../models/Usuario');
+        const operadores = await Usuario.find({
+            entidadId: req.user.entidadId,
+            rol: 'OPERADOR',
+            estado: true
+        })
+        .select('nombre apellido email ventanilla')
+        .populate('ventanilla', 'numero nombre')
+        .sort({ nombre: 1 });
+
+        res.status(200).json(operadores);
+    } catch (error) {
+        console.error('Error al obtener operadores disponibles:', error);
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// @desc    Transferir/Reasignar turno a otro operador o trámite (Operador)
 // @route   PUT /api/turnos/:id/transferir
 // @access  Privado (OPERADOR, ADMINISTRADOR)
 exports.transferirTurno = async (req, res) => {
-    const { nuevoTramiteId } = req.body;
+    const { nuevoTramiteId, operadorDestinoId, motivo } = req.body;
 
     try {
-        if (!nuevoTramiteId) {
-            return res.status(400).json({ message: 'El nuevo trámite es obligatorio' });
-        }
-
-        const nuevoTramite = await Tramite.findOne({ _id: nuevoTramiteId, entidadId: req.user.entidadId });
-        if (!nuevoTramite) {
-            return res.status(404).json({ message: 'El trámite de destino no existe o sin permisos' });
-        }
-
         const turno = await Turno.findOne({ _id: req.params.id, entidadId: req.user.entidadId });
         if (!turno) {
             return res.status(404).json({ message: 'Turno no encontrado o sin permisos' });
         }
 
-        // Actualizar el turno para volver a ponerlo en fila de espera para el nuevo trámite
-        turno.tramite = nuevoTramiteId;
+        // Si se cambia de trámite
+        if (nuevoTramiteId) {
+            const nuevoTramite = await Tramite.findOne({ _id: nuevoTramiteId, entidadId: req.user.entidadId });
+            if (!nuevoTramite) {
+                return res.status(404).json({ message: 'El trámite de destino no existe o sin permisos' });
+            }
+            turno.tramite = nuevoTramiteId;
+        }
+
+        // Si se reasigna a un operador específico
+        if (operadorDestinoId) {
+            const Usuario = require('../models/Usuario');
+            const opDestino = await Usuario.findOne({ _id: operadorDestinoId, entidadId: req.user.entidadId });
+            if (!opDestino) {
+                return res.status(404).json({ message: 'El operador de destino no existe o no pertenece a tu entidad' });
+            }
+            turno.operadorAsignado = operadorDestinoId;
+            turno.esReasignado = true;
+            turno.operadorReasigno = req.user._id;
+            turno.motivoReasignacion = motivo ? motivo.trim() : 'Reasignado por operador';
+        } else {
+            turno.operadorAsignado = null;
+            turno.esReasignado = false;
+            turno.motivoReasignacion = null;
+            turno.operadorReasigno = req.user._id;
+        }
+
+        // Devolver el turno a fila de espera
         turno.estado = 'ESPERA';
         turno.usuarioAtencion = null;
         turno.ventanilla = null;
-        // Mantenemos el código original del turno para no confundir al cliente
 
         await turno.save();
 
         const turnoPopulado = await Turno.findById(turno._id)
-            .populate('tramite');
+            .populate('tramite')
+            .populate('operadorAsignado', 'nombre apellido')
+            .populate('operadorReasigno', 'nombre apellido');
 
         socketService.emitTurnoActualizado(turnoPopulado);
         res.status(200).json(turnoPopulado);
     } catch (error) {
+        console.error('Error al transferir turno:', error);
         res.status(500).json({ message: error.message });
     }
 };

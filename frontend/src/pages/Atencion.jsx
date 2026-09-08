@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Play, CheckCircle, SkipForward, Pause, RefreshCw, XCircle, Users, Monitor, AlertCircle, Info, ChevronRight } from 'lucide-react';
+import { Play, CheckCircle, SkipForward, Pause, RefreshCw, XCircle, Users, Monitor, AlertCircle, Info, ChevronRight, Bell, ArrowRightLeft, UserCheck } from 'lucide-react';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { io } from 'socket.io-client';
@@ -20,17 +20,22 @@ const Atencion = () => {
   const [loading, setLoading] = useState(true);
   const [socketStatus, setSocketStatus] = useState('connecting'); // connecting, connected, disconnected (polling)
   
-  // Estado para modal de reasignación
+  // Estados para reasignación y notificación de turnos
   const [showTransferModal, setShowTransferModal] = useState(false);
   const [targetTramite, setTargetTramite] = useState('');
+  const [targetOperador, setTargetOperador] = useState('');
+  const [targetMotivo, setTargetMotivo] = useState('');
+  const [operadoresDisponibles, setOperadoresDisponibles] = useState([]);
+  const [turnoReasignadoPendiente, setTurnoReasignadoPendiente] = useState(null);
 
   const socketRef = useRef(null);
   const pollingIntervalRef = useRef(null);
 
-  // Cargar ventanillas y trámites iniciales — esperar a que user esté disponible
+  // Cargar ventanillas, trámites y operadores iniciales
   useEffect(() => {
     if (user?._id) {
       fetchVentanillas();
+      fetchOperadores();
     }
     fetchTramites();
   }, [user?._id]);
@@ -126,6 +131,15 @@ const Atencion = () => {
     }
   };
 
+  const fetchOperadores = async () => {
+    try {
+      const res = await api.get('/turnos/operadores-disponibles');
+      setOperadoresDisponibles(res.data || []);
+    } catch (err) {
+      console.error('Error fetching operadores:', err);
+    }
+  };
+
   const initSocket = () => {
     try {
       const isProd = typeof window !== 'undefined' && 
@@ -138,7 +152,6 @@ const Atencion = () => {
       socket.on('connect', () => {
         console.log('✅ Conectado al WebSocket del Servidor');
         setSocketStatus('connected');
-        // Detener polling si estaba activo
         if (pollingIntervalRef.current) {
           clearInterval(pollingIntervalRef.current);
           pollingIntervalRef.current = null;
@@ -160,6 +173,10 @@ const Atencion = () => {
       // Escuchar actualización de la fila
       socket.on('cola_actualizada', () => {
         console.log('⚡ Sincronizando colas en tiempo real...');
+        fetchTurnos();
+      });
+
+      socket.on('turno_actualizado', () => {
         fetchTurnos();
       });
 
@@ -196,11 +213,33 @@ const Atencion = () => {
         return '';
       };
       const enEsperaHoy = allTurnos.filter(t => t.estado === 'ESPERA' && normFecha(t) === hoyISO);
-      setEspera(enEsperaHoy);
+
+      // Detectar si hay turno reasignado a este operador
+      const reasignadoAMi = enEsperaHoy.find(t => {
+        const opId = t.operadorAsignado?._id || t.operadorAsignado;
+        return opId && String(opId) === String(user?._id);
+      });
+      setTurnoReasignadoPendiente(reasignadoAMi || null);
+
+      // Ordenar fila de espera:
+      // 1. Reasignados a este operador
+      // 2. Prioritarios
+      // 3. Normales
+      const ordenados = [...enEsperaHoy].sort((a, b) => {
+        const aMio = (a.operadorAsignado?._id || a.operadorAsignado) === user?._id;
+        const bMio = (b.operadorAsignado?._id || b.operadorAsignado) === user?._id;
+        if (aMio && !bMio) return -1;
+        if (!aMio && bMio) return 1;
+        if (a.prioridad === 'PRIORITARIO' && b.prioridad !== 'PRIORITARIO') return -1;
+        if (a.prioridad !== 'PRIORITARIO' && b.prioridad === 'PRIORITARIO') return 1;
+        return new Date(a.createdAt) - new Date(b.createdAt);
+      });
+
+      setEspera(ordenados);
 
       // Turno activo de este operador en este momento
-      const activo = allTurnos.find(t => t.estado === 'ATENDIENDO' && t.usuarioAtencion?._id === user?._id);
-      const pausado = allTurnos.find(t => t.estado === 'PAUSADO' && t.usuarioAtencion?._id === user?._id);
+      const activo = allTurnos.find(t => t.estado === 'ATENDIENDO' && String(t.usuarioAtencion?._id || t.usuarioAtencion) === String(user?._id));
+      const pausado = allTurnos.find(t => t.estado === 'PAUSADO' && String(t.usuarioAtencion?._id || t.usuarioAtencion) === String(user?._id));
 
       setCurrentTurno(activo || pausado || null);
       setLoading(false);
@@ -224,7 +263,7 @@ const Atencion = () => {
     setCurrentTurno(null);
   };
 
-  // 1. Llamar al siguiente turno en cola
+  // 1. Llamar al siguiente turno en cola (prioriza turnos reasignados automáticamente)
   const llamarSiguiente = async () => {
     try {
       const res = await api.post('/turnos/llamar-siguiente', { ventanilla });
@@ -253,7 +292,7 @@ const Atencion = () => {
     if (!currentTurno) return;
     try {
       const res = await api.put(`/turnos/${currentTurno._id}/pausar`);
-      setCurrentTurno(res.data); // Actualizar inmediatamente sin parpadeo
+      setCurrentTurno(res.data);
       fetchTurnos();
     } catch (error) {
       alert('Error al pausar atención');
@@ -265,7 +304,7 @@ const Atencion = () => {
     if (!currentTurno) return;
     try {
       const res = await api.put(`/turnos/${currentTurno._id}/reanudar`);
-      setCurrentTurno(res.data); // Actualizar inmediatamente sin parpadeo
+      setCurrentTurno(res.data);
       fetchTurnos();
     } catch (error) {
       alert('Error al reanudar atención');
@@ -288,15 +327,23 @@ const Atencion = () => {
   // 6. Transferir o Reasignar turno
   const transferirTurno = async (e) => {
     e.preventDefault();
-    if (!targetTramite) return alert('Seleccione un trámite');
+    if (!targetOperador && !targetTramite) {
+      return alert('Debe seleccionar un operador de destino o un nuevo trámite');
+    }
     try {
-      await api.put(`/turnos/${currentTurno._id}/transferir`, { nuevoTramiteId: targetTramite });
+      await api.put(`/turnos/${currentTurno._id}/transferir`, {
+        nuevoTramiteId: targetTramite || undefined,
+        operadorDestinoId: targetOperador || undefined,
+        motivo: targetMotivo || undefined
+      });
       setShowTransferModal(false);
       setTargetTramite('');
+      setTargetOperador('');
+      setTargetMotivo('');
       setCurrentTurno(null);
       fetchTurnos();
     } catch (error) {
-      alert('Error al transferir el turno');
+      alert(error.response?.data?.message || 'Error al transferir el turno');
     }
   };
 
@@ -427,6 +474,81 @@ const Atencion = () => {
         )}
       </div>
 
+      {/* Banner de Notificación de Turno Reasignado Pendiente */}
+      {turnoReasignadoPendiente && (
+        <div style={{
+          background: 'linear-gradient(135deg, rgba(234, 179, 8, 0.14) 0%, rgba(202, 138, 4, 0.08) 100%)',
+          border: '1px solid rgba(234, 179, 8, 0.4)',
+          borderRadius: '16px',
+          padding: '1.1rem 1.5rem',
+          marginBottom: '1.5rem',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: '1rem',
+          boxShadow: '0 8px 24px rgba(234, 179, 8, 0.12)'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+            <div style={{
+              width: '46px', height: '46px', borderRadius: '12px',
+              background: 'linear-gradient(135deg, #eab308, #ca8a04)',
+              color: '#0f172a', display: 'flex', alignItems: 'center', justifyContent: 'center',
+              boxShadow: '0 4px 14px rgba(234, 179, 8, 0.35)', flexShrink: 0
+            }}>
+              <Bell size={24} />
+            </div>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
+                <span style={{ fontWeight: 800, color: '#fef08a', fontSize: '1.05rem' }}>
+                  ¡Tienes un turno reasignado pendiente!
+                </span>
+                <span style={{
+                  background: '#eab308', color: '#0f172a',
+                  fontSize: '0.72rem', fontWeight: 800, padding: '0.15rem 0.55rem', borderRadius: '6px',
+                  letterSpacing: '0.04em'
+                }}>
+                  PRIORIDAD 1
+                </span>
+              </div>
+              <div style={{ color: 'rgba(255,255,255,0.75)', fontSize: '0.88rem', marginTop: '0.2rem' }}>
+                Turno <strong style={{ color: '#fff', fontSize: '1rem' }}>{turnoReasignadoPendiente.codigoTurno}</strong> ({turnoReasignadoPendiente.tramite?.nombre}).
+                {currentTurno
+                  ? ' Será llamado automáticamente cuando finalices tu atención actual.'
+                  : ' ¡Está listo para ser atendido! Haz clic para iniciar su llamado ahora.'}
+                {turnoReasignadoPendiente.motivoReasignacion && (
+                  <span style={{ color: '#fde047', fontStyle: 'italic', display: 'block', marginTop: '0.15rem' }}>
+                    Motivo: "{turnoReasignadoPendiente.motivoReasignacion}"
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {!currentTurno && (
+            <button 
+              onClick={llamarSiguiente}
+              className="btn btn-primary"
+              style={{
+                background: 'linear-gradient(135deg, #eab308, #ca8a04)',
+                color: '#0f172a',
+                borderColor: 'transparent',
+                fontWeight: 800,
+                padding: '0.75rem 1.5rem',
+                borderRadius: '12px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                boxShadow: '0 4px 15px rgba(234, 179, 8, 0.3)',
+                cursor: 'pointer'
+              }}
+            >
+              <Play size={18} fill="#0f172a" /> Atender Turno Reasignado
+            </button>
+          )}
+        </div>
+      )}
+
       {/* Grid Principal: Turno Activo vs Cola */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: '2rem' }} className="operator-grid">
         
@@ -448,8 +570,25 @@ const Atencion = () => {
               <div style={{
                 position: 'absolute',
                 top: '20px',
-                right: '20px'
+                right: '20px',
+                display: 'flex',
+                gap: '0.5rem'
               }}>
+                {currentTurno.esReasignado && (
+                  <span style={{
+                    background: '#eab308',
+                    color: '#0f172a',
+                    fontSize: '0.8rem',
+                    padding: '0.4rem 0.8rem',
+                    borderRadius: '20px',
+                    fontWeight: 800,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px'
+                  }}>
+                    🔄 REASIGNADO
+                  </span>
+                )}
                 <span className={`badge ${currentTurno.prioridad === 'PRIORITARIO' ? 'badge-danger' : 'badge-primary'}`} style={{ fontSize: '0.8rem', padding: '0.4rem 1rem', fontWeight: 700 }}>
                   {currentTurno.prioridad === 'PRIORITARIO' ? `PRIORITARIO (${currentTurno.motivoPrioridad})` : 'NORMAL'}
                 </span>
@@ -471,12 +610,26 @@ const Atencion = () => {
                 {currentTurno.codigoTurno}
               </h2>
 
-              <p style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--text-main)', marginBottom: '0.25rem' }}>
+              <p style={{ fontSize: '1.5rem', fontWeight: 600, color: 'var(--text-main)', marginBottom: '0.5rem' }}>
                 {currentTurno.tramite?.nombre}
               </p>
+
+              {currentTurno.motivoReasignacion && (
+                <div style={{
+                  background: 'rgba(234, 179, 8, 0.15)',
+                  color: '#fef08a',
+                  border: '1px solid rgba(234, 179, 8, 0.3)',
+                  padding: '0.35rem 1rem',
+                  borderRadius: '8px',
+                  fontSize: '0.85rem',
+                  marginBottom: '1rem'
+                }}>
+                  💬 {currentTurno.motivoReasignacion}
+                </div>
+              )}
               
-              <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)', marginBottom: '2.5rem' }}>
-                Llamado a las {currentTurno.hora} • Espera de: <strong>{Math.floor(currentTurno.tiempoEspera / 60)} min</strong>
+              <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '2.5rem' }}>
+                Atención iniciada a las {currentTurno.hora}
               </p>
 
               {/* Acciones del Operador */}
@@ -495,7 +648,12 @@ const Atencion = () => {
                   </button>
                 )}
 
-                <button className="btn btn-outline" onClick={() => setShowTransferModal(true)} style={{ padding: '0.75rem 1.25rem', fontSize: '1rem', borderRadius: '12px', color: '#a78bfa', borderColor: 'rgba(167,139,250,0.3)', background: 'rgba(124,58,237,0.08)' }}>
+                <button className="btn btn-outline" onClick={() => {
+                    setTargetTramite(currentTurno.tramite?._id || '');
+                    setTargetOperador('');
+                    setTargetMotivo('');
+                    setShowTransferModal(true);
+                  }} style={{ padding: '0.75rem 1.25rem', fontSize: '1rem', borderRadius: '12px', color: '#a78bfa', borderColor: 'rgba(167,139,250,0.3)', background: 'rgba(124,58,237,0.08)' }}>
                   <RefreshCw size={20} /> Reasignar Trámite
                 </button>
 
@@ -558,29 +716,50 @@ const Atencion = () => {
           {/* Cola Scrollable */}
           <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '0.75rem', paddingRight: '0.25rem' }}>
             {espera.length > 0 ? (
-              espera.map((t) => (
+              espera.map((t) => {
+                const esMio = String(t.operadorAsignado?._id || t.operadorAsignado) === String(user?._id);
+                return (
                 <div 
                   key={t._id} 
                   style={{ 
                     display: 'flex', 
                     flexDirection: 'column',
                     padding: '0.85rem 1rem', 
-                    background: t.prioridad === 'PRIORITARIO' ? 'rgba(251,191,36,0.08)' : 'rgba(255,255,255,0.04)', 
+                    background: esMio 
+                        ? 'rgba(234, 179, 8, 0.12)' 
+                        : (t.prioridad === 'PRIORITARIO' ? 'rgba(251,191,36,0.08)' : 'rgba(255,255,255,0.04)'), 
                     borderRadius: '10px', 
                     border: '1px solid',
-                    borderColor: t.prioridad === 'PRIORITARIO' ? 'rgba(251,191,36,0.25)' : 'rgba(255,255,255,0.08)',
-                    position: 'relative'
+                    borderColor: esMio 
+                        ? 'rgba(234, 179, 8, 0.5)' 
+                        : (t.prioridad === 'PRIORITARIO' ? 'rgba(251,191,36,0.25)' : 'rgba(255,255,255,0.08)'),
+                    position: 'relative',
+                    boxShadow: esMio ? '0 0 12px rgba(234, 179, 8, 0.18)' : 'none'
                   }}
                 >
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <strong style={{ fontSize: '1.1rem', color: 'var(--text-main)' }}>{t.codigoTurno}</strong>
-                    <span style={{ 
-                      fontSize: '0.75rem', 
-                      fontWeight: 700, 
-                      color: t.prioridad === 'PRIORITARIO' ? '#fbbf24' : 'rgba(255,255,255,0.4)' 
-                    }}>
-                      {t.prioridad === 'PRIORITARIO' ? `⭐ PRIORITARIO` : 'NORMAL'}
-                    </span>
+                    <strong style={{ fontSize: '1.1rem', color: esMio ? '#fef08a' : 'var(--text-main)' }}>{t.codigoTurno}</strong>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                      {esMio && (
+                        <span style={{ 
+                          fontSize: '0.7rem', 
+                          fontWeight: 800, 
+                          background: '#eab308', 
+                          color: '#0f172a',
+                          padding: '0.15rem 0.5rem',
+                          borderRadius: '4px'
+                        }}>
+                          🔄 REASIGNADO
+                        </span>
+                      )}
+                      <span style={{ 
+                        fontSize: '0.75rem', 
+                        fontWeight: 700, 
+                        color: t.prioridad === 'PRIORITARIO' ? '#fbbf24' : 'rgba(255,255,255,0.4)' 
+                      }}>
+                        {t.prioridad === 'PRIORITARIO' ? `⭐ PRIORITARIO` : 'NORMAL'}
+                      </span>
+                    </div>
                   </div>
 
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.35rem' }}>
@@ -592,8 +771,14 @@ const Atencion = () => {
                       <Info size={12} /> Motivo: {t.motivoPrioridad}
                     </div>
                   )}
+                  {esMio && t.motivoReasignacion && (
+                    <div style={{ fontSize: '0.75rem', color: '#fde047', marginTop: '0.25rem', fontStyle: 'italic' }}>
+                      💬 Nota: {t.motivoReasignacion}
+                    </div>
+                  )}
                 </div>
-              ))
+              );
+              })
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--text-muted)' }}>
                 <AlertCircle size={32} style={{ marginBottom: '0.5rem' }} />
@@ -605,31 +790,54 @@ const Atencion = () => {
 
       </div>
 
-      {/* Modal para Transferir / Reasignar Trámite */}
+      {/* Modal para Transferir / Reasignar Turno */}
       {showTransferModal && (
-        <div className="modal-overlay" style={{ background: 'rgba(15, 23, 42, 0.6)' }}>
-          <div className="modal-content" style={{ maxWidth: '440px', borderRadius: '18px' }}>
-            <div className="modal-header">
-              <h2 style={{ fontSize: '1.25rem', fontWeight: 800 }}>Reasignar Trámite</h2>
-              <button onClick={() => setShowTransferModal(false)} style={{ color: 'var(--text-muted)', fontSize: '1.5rem', fontWeight: 'bold' }}>&times;</button>
+        <div className="modal-overlay" style={{ background: 'rgba(15, 23, 42, 0.65)', backdropFilter: 'blur(4px)' }}>
+          <div className="modal-content" style={{ maxWidth: '480px', borderRadius: '20px', background: '#1a1830', border: '1px solid rgba(124,58,237,0.3)', padding: '2rem' }}>
+            <div className="modal-header" style={{ marginBottom: '1rem', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '0.85rem' }}>
+              <h2 style={{ fontSize: '1.25rem', fontWeight: 800 }}>Reasignar Turno</h2>
+              <button onClick={() => setShowTransferModal(false)} style={{ color: 'var(--text-muted)', fontSize: '1.5rem', fontWeight: 'bold', background: 'none', border: 'none', cursor: 'pointer' }}>&times;</button>
             </div>
             
-            <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem', marginBottom: '1.5rem' }}>
-              El turno <strong>{currentTurno?.codigoTurno}</strong> será colocado de vuelta en la fila de espera del trámite que selecciones.
+            <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: '0.875rem', marginBottom: '1.5rem' }}>
+              Reasigna el turno <strong>{currentTurno?.codigoTurno}</strong> a otro operador o trámite. Al operador seleccionado le aparecerá como su próximo turno a llamar.
             </p>
 
             <form onSubmit={transferirTurno}>
-              <div className="form-group" style={{ marginBottom: '2rem' }}>
-                <label style={{ fontWeight: 600 }}>Seleccione el Trámite de Destino</label>
+              {/* Selector de Operador de Destino */}
+              <div className="form-group" style={{ marginBottom: '1.25rem' }}>
+                <label style={{ fontWeight: 600, fontSize: '0.85rem', color: 'rgba(255,255,255,0.7)' }}>Operador / Ventanilla de Destino</label>
                 <select 
-                  required 
+                  value={targetOperador} 
+                  onChange={(e) => setTargetOperador(e.target.value)}
+                  style={{ marginTop: '0.4rem', height: '44px', borderRadius: '10px', width: '100%', background: '#13111c', border: '1px solid rgba(255,255,255,0.15)', color: 'white', padding: '0 0.75rem' }}
+                >
+                  <option value="">Seleccione un operador específico (opcional)...</option>
+                  {operadoresDisponibles
+                    .filter(op => String(op._id) !== String(user?._id))
+                    .map(op => (
+                      <option key={op._id} value={op._id}>
+                        {op.nombre} {op.apellido} {op.ventanilla ? `— ${op.ventanilla.nombre || `Ventanilla ${op.ventanilla.numero}`}` : '— (Sin ventanilla)'}
+                      </option>
+                    ))
+                  }
+                </select>
+                <small style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.75rem', display: 'block', marginTop: '0.3rem' }}>
+                  Si seleccionas un operador, el turno se le reservará exclusivamente a él.
+                </small>
+              </div>
+
+              {/* Selector de Trámite de Destino */}
+              <div className="form-group" style={{ marginBottom: '1.25rem' }}>
+                <label style={{ fontWeight: 600, fontSize: '0.85rem', color: 'rgba(255,255,255,0.7)' }}>Trámite de Destino</label>
+                <select 
                   value={targetTramite} 
                   onChange={(e) => setTargetTramite(e.target.value)}
-                  style={{ marginTop: '0.5rem', height: '45px', borderRadius: '8px' }}
+                  style={{ marginTop: '0.4rem', height: '44px', borderRadius: '10px', width: '100%', background: '#13111c', border: '1px solid rgba(255,255,255,0.15)', color: 'white', padding: '0 0.75rem' }}
                 >
-                  <option value="">Seleccione...</option>
+                  <option value="">Mantener trámite actual ({currentTurno?.tramite?.nombre})</option>
                   {tramites
-                    .filter(t => t._id !== currentTurno?.tramite?._id && t.estado)
+                    .filter(t => t.estado)
                     .map(t => (
                       <option key={t._id} value={t._id}>{t.nombre}</option>
                     ))
@@ -637,12 +845,24 @@ const Atencion = () => {
                 </select>
               </div>
 
+              {/* Motivo de reasignación */}
+              <div className="form-group" style={{ marginBottom: '1.75rem' }}>
+                <label style={{ fontWeight: 600, fontSize: '0.85rem', color: 'rgba(255,255,255,0.7)' }}>Motivo / Observación (opcional)</label>
+                <input 
+                  type="text"
+                  placeholder="Ej: Requiere pago en caja, validación de firma..."
+                  value={targetMotivo}
+                  onChange={(e) => setTargetMotivo(e.target.value)}
+                  style={{ marginTop: '0.4rem', height: '44px', borderRadius: '10px', width: '100%', background: '#13111c', border: '1px solid rgba(255,255,255,0.15)', color: 'white', padding: '0 0.75rem' }}
+                />
+              </div>
+
               <div style={{ display: 'flex', gap: '1rem' }}>
-                <button type="button" className="btn btn-outline" style={{ flex: 1 }} onClick={() => setShowTransferModal(false)}>
+                <button type="button" className="btn btn-outline" style={{ flex: 1, height: '44px', borderRadius: '10px' }} onClick={() => setShowTransferModal(false)}>
                   Cancelar
                 </button>
-                <button type="submit" className="btn btn-primary" style={{ flex: 1, fontWeight: 700 }}>
-                  Transferir Turno
+                <button type="submit" className="btn btn-primary" style={{ flex: 1, height: '44px', borderRadius: '10px', fontWeight: 700 }}>
+                  Reasignar Turno
                 </button>
               </div>
             </form>

@@ -59,6 +59,27 @@ const turnoSchema = new mongoose.Schema({
         default: 0
     },
 
+    // ── REASIGNACIÓN DE TURNOS ───────────────────────────────────────────────
+    operadorAsignado: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Usuario',
+        default: null
+    },
+    esReasignado: {
+        type: Boolean,
+        default: false
+    },
+    motivoReasignacion: {
+        type: String,
+        default: null
+    },
+    operadorReasigno: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Usuario',
+        default: null
+    },
+    // ────────────────────────────────────────────────────────────────────────
+
     // ── MULTI-ENTIDAD ───────────────────────────────────────────────────────
     entidadId: {
         type: mongoose.Schema.Types.ObjectId,
@@ -77,5 +98,7 @@ turnoSchema.index({ entidadId: 1, fecha: 1, estado: 1 });
 turnoSchema.index({ entidadId: 1, fecha: 1, codigoTurno: 1 });
 // Para el panel en tiempo real: turnos en espera de una entidad
 turnoSchema.index({ entidadId: 1, estado: 1, prioridad: 1 });
+// Para turnos reasignados a un operador específico
+turnoSchema.index({ entidadId: 1, estado: 1, operadorAsignado: 1 });
 
 module.exports = mongoose.model('Turno', turnoSchema);
