@@ -35,7 +35,6 @@ exports.getTurnos = async (req, res) => {
             .populate('tramite')
             .populate('usuarioAtencion', 'nombre apellido email rol')
             .populate('operadorAsignado', 'nombre apellido email')
-            .populate('ventanillaDestino', 'numero nombre')
             .populate('operadorReasigno', 'nombre apellido email')
             .sort({ createdAt: -1 });
 
@@ -234,32 +233,36 @@ exports.llamarSiguiente = async (req, res) => {
         }
 
         // 2. Buscar el siguiente turno en cola ('ESPERA') de hoy
-        const Ventanilla = require('../models/Ventanilla');
-        const miVentanillaObj = await Ventanilla.findOne({ operador: req.user._id, entidadId: req.user.entidadId });
-
-        // PRIORIDAD 1 (MÁXIMA): Turnos reasignados específicamente a este operador o a su ventanilla (FIFO)
-        const reasignadoQueries = [{ operadorAsignado: req.user._id }];
-        if (miVentanillaObj) {
-            reasignadoQueries.push({ ventanillaDestino: miVentanillaObj._id });
-        }
-
+        // PRIORIDAD 1 (MÁXIMA): Turnos reasignados específicamente a este operador O a esta ventanilla (FIFO)
         let siguienteTurno = await Turno.findOne({
             fecha: fecha,
             estado: 'ESPERA',
             entidadId: req.user.entidadId,
-            $or: reasignadoQueries
+            $or: [
+                { operadorAsignado: req.user._id },
+                { ventanillaAsignada: ventanillaFinal }
+            ]
         }).populate('tramite').sort({ createdAt: 1 });
 
-        // Condiciones de exclusión para turnos generales:
-        // No tomar turnos reservados a OTRO operador o a OTRA ventanilla
-        const exclusionFiltro = [
-            { operadorAsignado: null, ventanillaDestino: null },
-            { operadorAsignado: { $exists: false }, ventanillaDestino: { $exists: false } },
-            { operadorAsignado: req.user._id }
-        ];
-        if (miVentanillaObj) {
-            exclusionFiltro.push({ ventanillaDestino: miVentanillaObj._id });
-        }
+        // Filtro para turnos generales: NO tomar turnos asignados exclusivamente a otro operador o a otra ventanilla
+        const filtroNoAsignadoAOtro = {
+            $and: [
+                {
+                    $or: [
+                        { operadorAsignado: null },
+                        { operadorAsignado: { $exists: false } },
+                        { operadorAsignado: req.user._id }
+                    ]
+                },
+                {
+                    $or: [
+                        { ventanillaAsignada: null },
+                        { ventanillaAsignada: { $exists: false } },
+                        { ventanillaAsignada: ventanillaFinal }
+                    ]
+                }
+            ]
+        };
 
         // PRIORIDAD 2: Turno PRIORITARIO general
         if (!siguienteTurno) {
@@ -268,7 +271,7 @@ exports.llamarSiguiente = async (req, res) => {
                 estado: 'ESPERA',
                 prioridad: 'PRIORITARIO',
                 entidadId: req.user.entidadId,
-                $or: exclusionFiltro
+                ...filtroNoAsignadoAOtro
             }).populate('tramite').sort({ createdAt: 1 });
         }
 
@@ -279,7 +282,7 @@ exports.llamarSiguiente = async (req, res) => {
                 estado: 'ESPERA',
                 prioridad: 'NORMAL',
                 entidadId: req.user.entidadId,
-                $or: exclusionFiltro
+                ...filtroNoAsignadoAOtro
             }).populate('tramite').sort({ createdAt: 1 });
         }
 
@@ -480,11 +483,11 @@ exports.getOperadoresDisponibles = async (req, res) => {
     }
 };
 
-// @desc    Transferir/Reasignar turno a otro operador o ventanilla (Operador)
+// @desc    Transferir/Reasignar turno a otro operador, ventanilla o trámite (Operador)
 // @route   PUT /api/turnos/:id/transferir
 // @access  Privado (OPERADOR, ADMINISTRADOR)
 exports.transferirTurno = async (req, res) => {
-    const { nuevoTramiteId, operadorDestinoId, ventanillaDestinoId, motivo } = req.body;
+    const { nuevoTramiteId, ventanillaDestino, operadorDestinoId, motivo } = req.body;
 
     try {
         const turno = await Turno.findOne({ _id: req.params.id, entidadId: req.user.entidadId });
@@ -501,43 +504,16 @@ exports.transferirTurno = async (req, res) => {
             turno.tramite = nuevoTramiteId;
         }
 
-        const Usuario = require('../models/Usuario');
-        const Ventanilla = require('../models/Ventanilla');
-
-        let opDestinoFinal = null;
-        let vDestinoFinal = null;
-
-        // Si se seleccionó una ventanilla de destino
-        if (ventanillaDestinoId) {
-            const vObj = await Ventanilla.findOne({ _id: ventanillaDestinoId, entidadId: req.user.entidadId }).populate('operador');
-            if (vObj) {
-                vDestinoFinal = vObj._id;
-                if (vObj.operador) {
-                    opDestinoFinal = vObj.operador._id || vObj.operador;
-                }
-            }
-        }
-
-        // Si se seleccionó directamente un operador
-        if (operadorDestinoId && !opDestinoFinal) {
-            const opObj = await Usuario.findOne({ _id: operadorDestinoId, entidadId: req.user.entidadId });
-            if (opObj) {
-                opDestinoFinal = opObj._id;
-                if (opObj.ventanilla) {
-                    vDestinoFinal = opObj.ventanilla;
-                }
-            }
-        }
-
-        if (opDestinoFinal || vDestinoFinal) {
-            turno.operadorAsignado = opDestinoFinal;
-            turno.ventanillaDestino = vDestinoFinal;
+        // Si se reasigna a una ventanilla específica o a un operador
+        if (ventanillaDestino || operadorDestinoId) {
+            turno.ventanillaAsignada = ventanillaDestino ? ventanillaDestino.trim() : null;
+            turno.operadorAsignado = operadorDestinoId || null;
             turno.esReasignado = true;
             turno.operadorReasigno = req.user._id;
-            turno.motivoReasignacion = motivo ? motivo.trim() : 'Reasignado por operador';
+            turno.motivoReasignacion = motivo ? motivo.trim() : (ventanillaDestino ? `Reasignado a ${ventanillaDestino}` : 'Reasignado por operador');
         } else {
+            turno.ventanillaAsignada = null;
             turno.operadorAsignado = null;
-            turno.ventanillaDestino = null;
             turno.esReasignado = false;
             turno.motivoReasignacion = null;
             turno.operadorReasigno = req.user._id;
@@ -553,7 +529,6 @@ exports.transferirTurno = async (req, res) => {
         const turnoPopulado = await Turno.findById(turno._id)
             .populate('tramite')
             .populate('operadorAsignado', 'nombre apellido')
-            .populate('ventanillaDestino', 'numero nombre')
             .populate('operadorReasigno', 'nombre apellido');
 
         socketService.emitTurnoActualizado(turnoPopulado);

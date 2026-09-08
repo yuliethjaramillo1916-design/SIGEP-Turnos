@@ -198,17 +198,6 @@ const Atencion = () => {
     }
   };
 
-  // Helper para verificar si un turno en espera está asignado a este operador o su ventanilla
-  const isTurnoMio = (t) => {
-    if (!t) return false;
-    const opId = t.operadorAsignado?._id || t.operadorAsignado;
-    if (opId && String(opId) === String(user?._id)) return true;
-    const vDestinoId = t.ventanillaDestino?._id || t.ventanillaDestino;
-    const miVId = user?.ventanilla?._id || user?.ventanilla;
-    if (vDestinoId && miVId && String(vDestinoId) === String(miVId)) return true;
-    return false;
-  };
-
   const fetchTurnos = async () => {
     try {
       const response = await api.get('/turnos');
@@ -227,16 +216,21 @@ const Atencion = () => {
       const enEsperaHoy = allTurnos.filter(t => t.estado === 'ESPERA' && normFecha(t) === hoyISO);
 
       // Detectar si hay turno reasignado a este operador o a su ventanilla
-      const reasignadoAMi = enEsperaHoy.find(isTurnoMio);
+      const reasignadoAMi = enEsperaHoy.find(t => {
+        const opId = t.operadorAsignado?._id || t.operadorAsignado;
+        const esMiOperador = opId && String(opId) === String(user?._id);
+        const esMiVentanilla = t.ventanillaAsignada && t.ventanillaAsignada === ventanilla;
+        return esMiOperador || esMiVentanilla;
+      });
       setTurnoReasignadoPendiente(reasignadoAMi || null);
 
       // Ordenar fila de espera:
-      // 1. Reasignados a este operador / ventanilla
+      // 1. Reasignados a este operador o ventanilla
       // 2. Prioritarios
       // 3. Normales
       const ordenados = [...enEsperaHoy].sort((a, b) => {
-        const aMio = isTurnoMio(a);
-        const bMio = isTurnoMio(b);
+        const aMio = (a.operadorAsignado?._id || a.operadorAsignado) === user?._id || (a.ventanillaAsignada && a.ventanillaAsignada === ventanilla);
+        const bMio = (b.operadorAsignado?._id || b.operadorAsignado) === user?._id || (b.ventanillaAsignada && b.ventanillaAsignada === ventanilla);
         if (aMio && !bMio) return -1;
         if (!aMio && bMio) return 1;
         if (a.prioridad === 'PRIORITARIO' && b.prioridad !== 'PRIORITARIO') return -1;
@@ -341,18 +335,20 @@ const Atencion = () => {
     }
     try {
       await api.put(`/turnos/${currentTurno._id}/transferir`, {
+        ventanillaDestino: targetVentanilla || undefined,
+        operadorDestinoId: targetOperador || undefined,
         nuevoTramiteId: targetTramite || undefined,
-        ventanillaDestinoId: targetVentanilla || undefined,
         motivo: targetMotivo || undefined
       });
       setShowTransferModal(false);
-      setTargetTramite('');
       setTargetVentanilla('');
+      setTargetOperador('');
+      setTargetTramite('');
       setTargetMotivo('');
       setCurrentTurno(null);
       fetchTurnos();
     } catch (error) {
-      alert(error.response?.data?.message || 'Error al transferir el turno');
+      alert(error.response?.data?.message || 'Error al reasignar el turno');
     }
   };
 
@@ -659,14 +655,12 @@ const Atencion = () => {
 
                 <button className="btn btn-outline" onClick={() => {
                     setTargetTramite(currentTurno.tramite?._id || '');
-                    setTargetOperador('');
                     setTargetVentanilla('');
+                    setTargetOperador('');
                     setTargetMotivo('');
-                    fetchVentanillas();
-                    fetchOperadores();
                     setShowTransferModal(true);
                   }} style={{ padding: '0.75rem 1.25rem', fontSize: '1rem', borderRadius: '12px', color: '#a78bfa', borderColor: 'rgba(167,139,250,0.3)', background: 'rgba(124,58,237,0.08)' }}>
-                  <RefreshCw size={20} /> Reasignar Trámite
+                  <RefreshCw size={20} /> Reasignar Turno
                 </button>
 
                 {user?.rol === 'ADMINISTRADOR' && (
@@ -729,7 +723,7 @@ const Atencion = () => {
           <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '0.75rem', paddingRight: '0.25rem' }}>
             {espera.length > 0 ? (
               espera.map((t) => {
-                const esMio = String(t.operadorAsignado?._id || t.operadorAsignado) === String(user?._id);
+                const esMio = String(t.operadorAsignado?._id || t.operadorAsignado) === String(user?._id) || (t.ventanillaAsignada && t.ventanillaAsignada === ventanilla);
                 return (
                 <div 
                   key={t._id} 
@@ -816,45 +810,36 @@ const Atencion = () => {
             </p>
 
             <form onSubmit={transferirTurno}>
-              {/* Selector de Ventanilla / Operador de Destino */}
+              {/* Selector de Ventanilla de Destino */}
               <div className="form-group" style={{ marginBottom: '1.25rem' }}>
-                <label style={{ fontWeight: 600, fontSize: '0.85rem', color: 'rgba(255,255,255,0.7)' }}>
-                  Ventanilla / Operador de Destino
-                </label>
+                <label style={{ fontWeight: 600, fontSize: '0.85rem', color: 'rgba(255,255,255,0.7)' }}>Ventanilla de Destino</label>
                 <select 
+                  required
                   value={targetVentanilla} 
-                  onChange={(e) => setTargetVentanilla(e.target.value)}
+                  onChange={(e) => {
+                    const sel = e.target.value;
+                    setTargetVentanilla(sel);
+                    const vObj = ventanillasDisponibles.find(v => formatVentanillaLabel(v) === sel);
+                    setTargetOperador(vObj?.operador?._id || vObj?.operador || '');
+                  }}
                   style={{ marginTop: '0.4rem', height: '44px', borderRadius: '10px', width: '100%', background: '#13111c', border: '1px solid rgba(255,255,255,0.15)', color: 'white', padding: '0 0.75rem' }}
                 >
-                  <option value="">Seleccione una ventanilla de destino...</option>
-                  {ventanillasDisponibles && ventanillasDisponibles.length > 0 ? (
-                    ventanillasDisponibles
-                      .filter(v => !v.estado || String(v.estado).toLowerCase() === 'activa')
-                      .map(v => {
-                        const op = v.operador;
-                        const esMiVentanilla = (op && String(op._id || op) === String(user?._id)) ||
-                                               (user?.ventanilla && String(user.ventanilla?._id || user.ventanilla) === String(v._id));
-                        if (esMiVentanilla) return null;
-                        const nomVentanilla = formatVentanillaLabel(v);
-                        const opTexto = op ? `(${op.nombre} ${op.apellido})` : '(Disponible)';
-                        return (
-                          <option key={v._id} value={v._id}>
-                            {nomVentanilla} — {opTexto}
-                          </option>
-                        );
-                      })
-                  ) : (
-                    operadoresDisponibles
-                      .filter(op => String(op._id) !== String(user?._id))
-                      .map(op => (
-                        <option key={op._id} value={op.ventanilla?._id || op._id}>
-                          {op.ventanilla ? formatVentanillaLabel(op.ventanilla) : 'Ventanilla'} — ({op.nombre} {op.apellido})
+                  <option value="">Seleccione la ventanilla de destino...</option>
+                  {ventanillasDisponibles
+                    .filter(v => formatVentanillaLabel(v) !== ventanilla)
+                    .map(v => {
+                      const vLabel = formatVentanillaLabel(v);
+                      const opNombre = v.operador?.nombre ? ` (${v.operador.nombre} ${v.operador.apellido || ''})` : '';
+                      return (
+                        <option key={v._id} value={vLabel}>
+                          {vLabel}{opNombre}
                         </option>
-                      ))
-                  )}
+                      );
+                    })
+                  }
                 </select>
                 <small style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.75rem', display: 'block', marginTop: '0.3rem' }}>
-                  El turno será transferido a esta ventanilla con prioridad máxima de llamado.
+                  El turno será transferido y reservado con prioridad para esta ventanilla.
                 </small>
               </div>
 

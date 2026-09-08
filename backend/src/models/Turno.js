@@ -65,9 +65,8 @@ const turnoSchema = new mongoose.Schema({
         ref: 'Usuario',
         default: null
     },
-    ventanillaDestino: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'Ventanilla',
+    ventanillaAsignada: {
+        type: String, // Ventanilla específica a la que se reasigna, ej: "Ventanilla 1"
         default: null
     },
     esReasignado: {
