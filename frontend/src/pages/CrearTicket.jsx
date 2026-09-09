@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Ticket, Heart, Printer, Clock, CheckCircle2 } from 'lucide-react';
 import api from '../services/api';
 import DarkSelect from '../components/DarkSelect';
+import { evaluarHorarioAtencion } from '../utils/horarioAtencion';
 
 /* ── Helpers de fecha ── */
 const HOY_ISO = () => {
@@ -26,14 +27,35 @@ const CrearTicket = () => {
   const [loading, setLoading]         = useState(false);
   const [errorMsg, setErrorMsg]       = useState('');
   const [ticketsHoy, setTicketsHoy]   = useState([]);
+  const [horarioInfo, setHorarioInfo] = useState({ estado: 'abierto', activo: true });
 
-  /* Cargar trámites y tickets de hoy desde el backend */
+  /* Cargar trámites, horario de atención y tickets de hoy desde el backend */
   useEffect(() => {
     api.get('/tramites')
       .then(res => setTramites(res.data?.filter(t => t.estado) || []))
       .catch(() => {});
 
+    let configHorario = '';
+    const checkHorario = async () => {
+      try {
+        const res = await api.get('/configuracion');
+        if (res.data?.horario_atencion) {
+          configHorario = res.data.horario_atencion;
+          setHorarioInfo(evaluarHorarioAtencion(configHorario));
+        }
+      } catch {}
+    };
+
+    checkHorario();
+    const intervalHorario = setInterval(() => {
+      if (configHorario) {
+        setHorarioInfo(evaluarHorarioAtencion(configHorario));
+      }
+    }, 20000);
+
     fetchTicketsHoy();
+
+    return () => clearInterval(intervalHorario);
   }, []);
 
   const fetchTicketsHoy = async () => {
@@ -60,6 +82,14 @@ const CrearTicket = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!horarioInfo.activo) {
+      setErrorMsg(
+        horarioInfo.estado === 'antes_apertura'
+          ? `El sistema aún no inicia atención al público. Horario de apertura: ${horarioInfo.horaApertura}`
+          : `El horario de atención concluyó a las ${horarioInfo.horaCierre}. No es posible emitir nuevos tickets.`
+      );
+      return;
+    }
     if (!newTurno.tramite) return alert('Por favor, seleccione un trámite');
     if (newTurno.tramite === 'OTRO' && !newTurno.nombreOtro?.trim())
       return alert('Por favor, especifique el nombre del trámite');
@@ -127,6 +157,127 @@ const CrearTicket = () => {
             </div>
             <h3 style={{ fontSize: '1.1rem', fontWeight: 700 }}>Emitir Nuevo Ticket</h3>
           </div>
+
+          {/* ── Banner de Estado de Horario de Atención (Diseño Moderno) ── */}
+          {horarioInfo && horarioInfo.estado !== 'abierto' && horarioInfo.estado !== 'sin_limite' && (
+            <div style={{
+              marginBottom: '1.5rem',
+              padding: '0.9rem 1.1rem',
+              borderRadius: '12px',
+              background:
+                horarioInfo.estado === 'aviso_10'
+                  ? 'linear-gradient(135deg, rgba(249, 115, 22, 0.12) 0%, rgba(249, 115, 22, 0.03) 100%)'
+                  : horarioInfo.estado === 'aviso_60'
+                  ? 'linear-gradient(135deg, rgba(234, 179, 8, 0.10) 0%, rgba(234, 179, 8, 0.02) 100%)'
+                  : 'linear-gradient(135deg, rgba(239, 68, 68, 0.10) 0%, rgba(239, 68, 68, 0.02) 100%)',
+              border: `1px solid ${
+                horarioInfo.estado === 'aviso_10'
+                  ? 'rgba(249, 115, 22, 0.3)'
+                  : horarioInfo.estado === 'aviso_60'
+                  ? 'rgba(234, 179, 8, 0.25)'
+                  : 'rgba(239, 68, 68, 0.25)'
+              }`,
+              backdropFilter: 'blur(8px)',
+              display: 'flex',
+              alignItems: 'flex-start',
+              gap: '0.85rem',
+              boxShadow:
+                horarioInfo.estado === 'aviso_10'
+                  ? '0 4px 16px -2px rgba(249, 115, 22, 0.12)'
+                  : 'none',
+              animation: 'fadeIn 0.25s ease-out'
+            }}>
+              <div style={{
+                width: '34px',
+                height: '34px',
+                borderRadius: '8px',
+                flexShrink: 0,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                background:
+                  horarioInfo.estado === 'aviso_10'
+                    ? 'rgba(249, 115, 22, 0.22)'
+                    : horarioInfo.estado === 'aviso_60'
+                    ? 'rgba(234, 179, 8, 0.2)'
+                    : 'rgba(239, 68, 68, 0.2)',
+                color:
+                  horarioInfo.estado === 'aviso_10'
+                    ? '#fb923c'
+                    : horarioInfo.estado === 'aviso_60'
+                    ? '#facc15'
+                    : '#f87171'
+              }}>
+                <Clock size={18} />
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem', marginBottom: '0.2rem', flexWrap: 'wrap' }}>
+                  <span style={{
+                    fontWeight: 700,
+                    fontSize: '0.875rem',
+                    color:
+                      horarioInfo.estado === 'aviso_10'
+                        ? '#fdba74'
+                        : horarioInfo.estado === 'aviso_60'
+                        ? '#fef08a'
+                        : '#fca5a5'
+                  }}>
+                    {horarioInfo.estado === 'aviso_10'
+                      ? 'Cierre Inminente de Emisión'
+                      : horarioInfo.estado === 'aviso_60'
+                      ? 'Próximo Cierre de Atención'
+                      : horarioInfo.estado === 'antes_apertura'
+                      ? 'Atención Fuera de Horario'
+                      : 'Emisión de Tickets Finalizada'}
+                  </span>
+                  <span style={{
+                    fontSize: '0.68rem',
+                    fontWeight: 700,
+                    letterSpacing: '0.04em',
+                    textTransform: 'uppercase',
+                    padding: '0.12rem 0.5rem',
+                    borderRadius: '999px',
+                    background:
+                      horarioInfo.estado === 'aviso_10'
+                        ? 'rgba(249, 115, 22, 0.25)'
+                        : horarioInfo.estado === 'aviso_60'
+                        ? 'rgba(234, 179, 8, 0.2)'
+                        : 'rgba(239, 68, 68, 0.2)',
+                    color:
+                      horarioInfo.estado === 'aviso_10'
+                        ? '#ffedd5'
+                        : horarioInfo.estado === 'aviso_60'
+                        ? '#fef9c3'
+                        : '#fee2e2',
+                    border: `1px solid ${
+                      horarioInfo.estado === 'aviso_10'
+                        ? 'rgba(249, 115, 22, 0.4)'
+                        : horarioInfo.estado === 'aviso_60'
+                        ? 'rgba(234, 179, 8, 0.35)'
+                        : 'rgba(239, 68, 68, 0.35)'
+                    }`
+                  }}>
+                    {horarioInfo.estado === 'aviso_10'
+                      ? `Últimos ${horarioInfo.minutosParaCierre} min`
+                      : horarioInfo.estado === 'aviso_60'
+                      ? `Cierre en ${horarioInfo.minutosParaCierre} min`
+                      : horarioInfo.estado === 'antes_apertura'
+                      ? `Abre ${horarioInfo.horaApertura}`
+                      : `Cerró ${horarioInfo.horaCierre}`}
+                  </span>
+                </div>
+                <p style={{ margin: 0, fontSize: '0.78rem', color: 'rgba(255, 255, 255, 0.65)', lineHeight: 1.35 }}>
+                  {horarioInfo.estado === 'aviso_10'
+                    ? `La entrega de turnos cerrará a las ${horarioInfo.horaCierre}. Emita los últimos tickets antes del cierre.`
+                    : horarioInfo.estado === 'aviso_60'
+                    ? `El sistema dejará de emitir tickets a las ${horarioInfo.horaCierre}. Los turnos ya creados continuarán en atención.`
+                    : horarioInfo.estado === 'antes_apertura'
+                    ? `El horario de atención inicia a las ${horarioInfo.horaApertura}. Por favor espere a la apertura.`
+                    : `El horario de atención concluyó a las ${horarioInfo.horaCierre}. No es posible emitir más tickets por hoy.`}
+                </p>
+              </div>
+            </div>
+          )}
 
           <form onSubmit={handleSubmit}>
             {/* Trámite */}
@@ -225,13 +376,38 @@ const CrearTicket = () => {
               </div>
             )}
 
-            <button type="submit" disabled={loading} className="btn btn-primary"
-              style={{ width: '100%', height: '48px', borderRadius: '10px', fontWeight: 700, fontSize: '1rem', justifyContent: 'center' }}
+            <button
+              type="submit"
+              disabled={loading || !horarioInfo.activo}
+              className="btn btn-primary"
+              style={{
+                width: '100%',
+                height: '48px',
+                borderRadius: '10px',
+                fontWeight: 700,
+                fontSize: '0.95rem',
+                justifyContent: 'center',
+                gap: '0.5rem',
+                opacity: !horarioInfo.activo ? 0.55 : 1,
+                cursor: !horarioInfo.activo ? 'not-allowed' : 'pointer',
+                background: !horarioInfo.activo ? 'rgba(255, 255, 255, 0.08)' : undefined,
+                borderColor: !horarioInfo.activo ? 'rgba(255, 255, 255, 0.12)' : undefined,
+                color: !horarioInfo.activo ? 'rgba(255, 255, 255, 0.5)' : undefined
+              }}
             >
-              {loading
-                ? <span style={{ width: '18px', height: '18px', border: '2px solid rgba(255,255,255,0.3)', borderTopColor: 'white', borderRadius: '50%', display: 'inline-block', animation: 'spin 0.7s linear infinite' }} />
-                : <><Ticket size={18} /> Generar Ticket</>
-              }
+              {loading ? (
+                <span style={{ width: '18px', height: '18px', border: '2px solid rgba(255,255,255,0.3)', borderTopColor: 'white', borderRadius: '50%', display: 'inline-block', animation: 'spin 0.7s linear infinite' }} />
+              ) : !horarioInfo.activo ? (
+                <>
+                  <Clock size={18} style={{ opacity: 0.6 }} />
+                  <span>Emisión No Disponible (Fuera de Horario)</span>
+                </>
+              ) : (
+                <>
+                  <Ticket size={18} />
+                  <span>Generar Ticket</span>
+                </>
+              )}
             </button>
           </form>
         </div>

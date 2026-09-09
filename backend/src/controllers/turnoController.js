@@ -15,6 +15,58 @@ const getLocalDateString = () => {
     };
 };
 
+// Helper para validar si la hora actual está dentro del horario de atención
+const validarHorarioAtencion = (horarioStr) => {
+    if (!horarioStr || typeof horarioStr !== 'string') return { valido: true };
+    const match = horarioStr.match(/(\d{1,2}):(\d{2})\s*(?:-|a|hasta)\s*(\d{1,2}):(\d{2})/i);
+    if (!match) return { valido: true };
+
+    const [ , hIni, mIni, hFin, mFin ] = match;
+    const minInicio = parseInt(hIni, 10) * 60 + parseInt(mIni, 10);
+    const minFin = parseInt(hFin, 10) * 60 + parseInt(mFin, 10);
+
+    // Obtener hora actual en zona horaria oficial de la entidad (America/Bogota)
+    const d = new Date();
+    const formatter = new Intl.DateTimeFormat('es-CO', {
+        timeZone: 'America/Bogota',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false
+    });
+    const parts = formatter.formatToParts(d);
+    const horaActual = parseInt(parts.find(p => p.type === 'hour')?.value || '0', 10);
+    const minActual = parseInt(parts.find(p => p.type === 'minute')?.value || '0', 10);
+    const minActualTotales = horaActual * 60 + minActual;
+
+    const horaInicioFmt = `${hIni.padStart(2, '0')}:${mIni.padStart(2, '0')}`;
+    const horaFinFmt = `${hFin.padStart(2, '0')}:${mFin.padStart(2, '0')}`;
+
+    if (minActualTotales < minInicio) {
+        return {
+            valido: false,
+            motivo: `El horario de atención inicia a las ${horaInicioFmt}. No es posible emitir tickets antes de la apertura.`,
+            horaInicio: horaInicioFmt,
+            horaFin: horaFinFmt
+        };
+    }
+
+    if (minActualTotales >= minFin) {
+        return {
+            valido: false,
+            motivo: `El horario de atención para hoy ha finalizado (Horario: ${horaInicioFmt} - ${horaFinFmt}).`,
+            horaInicio: horaInicioFmt,
+            horaFin: horaFinFmt
+        };
+    }
+
+    return {
+        valido: true,
+        minutosRestantes: minFin - minActualTotales,
+        horaInicio: horaInicioFmt,
+        horaFin: horaFinFmt
+    };
+};
+
 // @desc    Obtener todos los turnos (con filtros de búsqueda)
 // @route   GET /api/turnos
 // @access  Privado (ADMINISTRADOR, OPERADOR, VIGILANTE)
@@ -118,6 +170,16 @@ exports.createTurno = async (req, res) => {
             // Verificar si el sistema está activo
             if (config.activo === false) {
                 return res.status(403).json({ message: 'El sistema de turnos está suspendido. Contacte al administrador.' });
+            }
+
+            // Verificar horario de atención configurado
+            if (config.horario_atencion) {
+                const validacionHorario = validarHorarioAtencion(config.horario_atencion);
+                if (!validacionHorario.valido) {
+                    return res.status(403).json({
+                        message: validacionHorario.motivo
+                    });
+                }
             }
 
             // Verificar límite de turnos del día

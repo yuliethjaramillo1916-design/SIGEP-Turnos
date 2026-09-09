@@ -1,8 +1,9 @@
 import Sidebar from './Sidebar';
 import { useAuth } from '../context/AuthContext';
-import { Bell, X, CheckCircle, Ticket, Monitor, Users, AlertTriangle } from 'lucide-react';
+import { Bell, X, CheckCircle, Ticket, Monitor, Users, AlertTriangle, Clock } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import api from '../services/api';
+import { evaluarHorarioAtencion } from '../utils/horarioAtencion';
 
 const Layout = ({ children }) => {
   const { user } = useAuth();
@@ -84,6 +85,39 @@ const Layout = ({ children }) => {
             });
           }
         }
+
+        // Comprobar horario de atención para alertas de cierre
+        try {
+          const configRes = await api.get('/configuracion');
+          if (configRes.data?.horario_atencion) {
+            const infoHor = evaluarHorarioAtencion(configRes.data.horario_atencion);
+            if (infoHor.estado === 'aviso_10') {
+              lista.unshift({
+                id: 'horario_cierre_10',
+                icon: 'reloj',
+                color: '#f97316',
+                msg: `Cierre inminente en ${infoHor.minutosParaCierre} min (${infoHor.horaCierre}). La emisión concluirá pronto.`,
+                time: 'Urgente'
+              });
+            } else if (infoHor.estado === 'aviso_60') {
+              lista.unshift({
+                id: 'horario_cierre_60',
+                icon: 'reloj',
+                color: '#eab308',
+                msg: `Horario de atención: cierre en ${infoHor.minutosParaCierre} min (${infoHor.horaCierre}).`,
+                time: 'Horario'
+              });
+            } else if (infoHor.estado === 'cerrado') {
+              lista.push({
+                id: 'horario_cerrado',
+                icon: 'reloj',
+                color: '#f87171',
+                msg: `Emisión de tickets cerrada para hoy (${infoHor.horaCierre}).`,
+                time: 'Cerrado'
+              });
+            }
+          }
+        } catch {}
 
         setNotifs(lista);
         setUnread(lista.length);
@@ -204,6 +238,7 @@ const Layout = ({ children }) => {
                           {n.icon === 'alerta'    && <AlertTriangle size={16} style={{ color: n.color }} />}
                           {n.icon === 'usuario'   && <Users    size={16} style={{ color: n.color }} />}
                           {n.icon === 'success'   && <CheckCircle size={16} style={{ color: n.color }} />}
+                          {n.icon === 'reloj'     && <Clock    size={16} style={{ color: n.color }} />}
                         </div>
                         <div style={{ flex:1, minWidth:0 }}>
                           <div style={{ fontSize:'0.82rem', color:'var(--text-main)', fontWeight:600 }}>{n.msg}</div>

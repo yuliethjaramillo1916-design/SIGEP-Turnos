@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { io } from 'socket.io-client';
 import api from '../services/api';
 import { Volume2, VolumeX, Play, Zap, Users, Clock } from 'lucide-react';
+import { evaluarHorarioAtencion } from '../utils/horarioAtencion';
 
 /* ── Calendario vectorial SVG ── */
 const CalendarIcon = ({ size = 24, color = 'white', style = {} }) => (
@@ -27,12 +28,14 @@ const PantallaPublica = () => {
   const [blinking, setBlinking]           = useState(false);
   const [socketConnected, setSocketConnected] = useState(false);
   const [horaActual, setHoraActual]       = useState('');
+  const [horarioInfo, setHorarioInfo]     = useState({ estado: 'sin_limite', activo: true });
 
   const socketRef          = useRef(null);
   const pollingIntervalRef = useRef(null);
   const announcedRef       = useRef(new Set());
   const audioEnabledRef    = useRef(false);
   const currentTurnoRef    = useRef(null);
+  const horarioStrRef      = useRef('');
 
   useEffect(() => { audioEnabledRef.current = audioEnabled; }, [audioEnabled]);
   useEffect(() => { currentTurnoRef.current = currentTurno; }, [currentTurno]);
@@ -135,6 +138,10 @@ const PantallaPublica = () => {
     try {
       const res = await api.get('/configuracion');
       if (res.data?.nombre_empresa) setEmpresaNombre(res.data.nombre_empresa);
+      if (res.data?.horario_atencion) {
+        horarioStrRef.current = res.data.horario_atencion;
+        setHorarioInfo(evaluarHorarioAtencion(res.data.horario_atencion));
+      }
     } catch {}
   };
 
@@ -176,7 +183,19 @@ const PantallaPublica = () => {
 
   useEffect(() => {
     fetchConfig(); fetchPublicStats(); initSocket();
-    return () => { socketRef.current?.disconnect(); if (pollingIntervalRef.current) clearInterval(pollingIntervalRef.current); };
+
+    // Reevaluar estado de horario cada 20 segundos
+    const horInterval = setInterval(() => {
+      if (horarioStrRef.current) {
+        setHorarioInfo(evaluarHorarioAtencion(horarioStrRef.current));
+      }
+    }, 20000);
+
+    return () => {
+      socketRef.current?.disconnect();
+      if (pollingIntervalRef.current) clearInterval(pollingIntervalRef.current);
+      clearInterval(horInterval);
+    };
   }, []);
 
   const habilitarAudioYComenzar = () => {
@@ -303,6 +322,80 @@ const PantallaPublica = () => {
           </div>
         </div>
       </header>
+
+      {/* ── Cintillo Informativo de Horario (Diseño Moderno) ── */}
+      {horarioInfo && ['aviso_60', 'aviso_10', 'cerrado'].includes(horarioInfo.estado) && (
+        <div style={{
+          background:
+            horarioInfo.estado === 'aviso_10'
+              ? 'linear-gradient(90deg, rgba(249, 115, 22, 0.22) 0%, rgba(234, 88, 12, 0.12) 100%)'
+              : horarioInfo.estado === 'aviso_60'
+              ? 'linear-gradient(90deg, rgba(234, 179, 8, 0.18) 0%, rgba(202, 138, 4, 0.08) 100%)'
+              : 'linear-gradient(90deg, rgba(239, 68, 68, 0.18) 0%, rgba(185, 28, 28, 0.08) 100%)',
+          borderBottom: `1px solid ${
+            horarioInfo.estado === 'aviso_10'
+              ? 'rgba(249, 115, 22, 0.35)'
+              : horarioInfo.estado === 'aviso_60'
+              ? 'rgba(234, 179, 8, 0.3)'
+              : 'rgba(239, 68, 68, 0.3)'
+          }`,
+          padding: '0.45rem 2rem',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: '1rem',
+          fontSize: '0.875rem',
+          fontWeight: 600,
+          color: 'white',
+          animation: 'fadeIn 0.3s ease-out',
+          flexShrink: 0
+        }}>
+          <span style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '0.4rem',
+            padding: '0.2rem 0.65rem',
+            borderRadius: '999px',
+            fontSize: '0.72rem',
+            fontWeight: 800,
+            letterSpacing: '0.04em',
+            textTransform: 'uppercase',
+            background:
+              horarioInfo.estado === 'aviso_10'
+                ? 'rgba(249, 115, 22, 0.35)'
+                : horarioInfo.estado === 'aviso_60'
+                ? 'rgba(234, 179, 8, 0.28)'
+                : 'rgba(239, 68, 68, 0.28)',
+            border: `1px solid ${
+              horarioInfo.estado === 'aviso_10'
+                ? 'rgba(249, 115, 22, 0.5)'
+                : horarioInfo.estado === 'aviso_60'
+                ? 'rgba(234, 179, 8, 0.4)'
+                : 'rgba(239, 68, 68, 0.4)'
+            }`,
+            color:
+              horarioInfo.estado === 'aviso_10'
+                ? '#ffedd5'
+                : horarioInfo.estado === 'aviso_60'
+                ? '#fef9c3'
+                : '#fee2e2'
+          }}>
+            <Clock size={13} />
+            {horarioInfo.estado === 'aviso_10'
+              ? `Cierre en ${horarioInfo.minutosParaCierre} min`
+              : horarioInfo.estado === 'aviso_60'
+              ? `Cierre en ${horarioInfo.minutosParaCierre} min`
+              : 'Atención Finalizada'}
+          </span>
+          <span style={{ color: 'rgba(255, 255, 255, 0.88)', letterSpacing: '0.01em' }}>
+            {horarioInfo.estado === 'aviso_10'
+              ? `Aviso a usuarios: La entrega de tickets cerrará en breves minutos (${horarioInfo.horaCierre}).`
+              : horarioInfo.estado === 'aviso_60'
+              ? `Información general: La emisión de tickets para la jornada de hoy concluye a las ${horarioInfo.horaCierre}.`
+              : `Aviso: La emisión de turnos para el día de hoy ha finalizado. Se continúa la atención de usuarios en sala.`}
+          </span>
+        </div>
+      )}
 
       {/* ── Contenido principal ── */}
       <main style={{ flex: 1, display: 'grid', gridTemplateColumns: '1.4fr 1fr', overflow: 'hidden', minHeight: 0 }}>
