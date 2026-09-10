@@ -14,6 +14,13 @@ module.exports = {
         io.on('connection', (socket) => {
             console.log(`Cliente conectado por WebSocket: ${socket.id}`);
 
+            // Permitir al cliente unirse a la sala de su entidad para notificaciones dirigidas
+            socket.on('join_entidad', (entidadId) => {
+                if (entidadId) {
+                    socket.join(`entidad_${entidadId}`);
+                }
+            });
+
             socket.on('disconnect', () => {
                 console.log(`Cliente desconectado: ${socket.id}`);
             });
@@ -54,6 +61,17 @@ module.exports = {
     emitVentanillaActualizada: (ventanilla) => {
         if (io) {
             io.emit('ventanilla_actualizada', ventanilla);
+        }
+    },
+
+    // Notificación en tiempo real de inicio / cierre de sesión para administradores de la entidad
+    emitNotificacionSesion: (entidadId, notificacion) => {
+        if (io) {
+            if (entidadId) {
+                io.to(`entidad_${entidadId}`).emit('notificacion_sesion', notificacion);
+            }
+            // También emitir broadcast general con entidadId para clientes conectados
+            io.emit('notificacion_sesion', notificacion);
         }
     }
 };

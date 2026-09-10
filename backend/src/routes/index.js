@@ -11,6 +11,7 @@ const reporteRoutes = require('./reporteRoutes');
 const configuracionRoutes = require('./configuracionRoutes');
 const entidadRoutes = require('./entidadRoutes');
 const superAdminRoutes = require('./superAdminRoutes');
+const notificacionRoutes = require('./notificacionRoutes');
 
 router.use('/auth', authRoutes);
 router.use('/usuarios', usuarioRoutes);
@@ -22,5 +23,6 @@ router.use('/reportes', reporteRoutes);
 router.use('/configuracion', configuracionRoutes);
 router.use('/entidades', entidadRoutes);
 router.use('/super-admin', superAdminRoutes);
+router.use('/notificaciones', notificacionRoutes);
 
 module.exports = router;

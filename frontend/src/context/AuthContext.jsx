@@ -130,13 +130,20 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // ── logout: limpiar todo ─────────────────────────────────────────────────
-  const logout = () => {
-    localStorage.removeItem('token');
-    delete api.defaults.headers.common['Authorization'];
-    setToken(null);
-    setUser(null);
-    setIsAuthenticated(false);
+  // ── logout: notificar al servidor y limpiar sesión local ──────────────────
+  const logout = async () => {
+    try {
+      // Notificar al backend del evento de logout antes de borrar credenciales
+      await api.post('/auth/logout');
+    } catch (err) {
+      console.warn('Aviso al notificar cierre de sesión al servidor:', err.message);
+    } finally {
+      localStorage.removeItem('token');
+      delete api.defaults.headers.common['Authorization'];
+      setToken(null);
+      setUser(null);
+      setIsAuthenticated(false);
+    }
   };
 
   // ── Valor del contexto expuesto ──────────────────────────────────────────

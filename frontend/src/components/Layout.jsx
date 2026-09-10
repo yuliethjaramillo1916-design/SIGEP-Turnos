@@ -1,9 +1,18 @@
 import Sidebar from './Sidebar';
 import { useAuth } from '../context/AuthContext';
-import { Bell, X, CheckCircle, Ticket, Monitor, Users, AlertTriangle, Clock } from 'lucide-react';
+import { Bell, X, CheckCircle, Ticket, Monitor, Users, AlertTriangle, Clock, LogIn, LogOut } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import api from '../services/api';
 import { evaluarHorarioAtencion } from '../utils/horarioAtencion';
+import { io } from 'socket.io-client';
+
+const formatearFechaHora = (fechaStr) => {
+  if (!fechaStr) return '';
+  const d = new Date(fechaStr);
+  const f = d.toLocaleDateString('es-CO', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  const h = d.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
+  return `${f} • ${h}`;
+};
 
 const Layout = ({ children }) => {
   const { user } = useAuth();
@@ -11,6 +20,56 @@ const Layout = ({ children }) => {
   const [notifs, setNotifs]         = useState([]);
   const [unread, setUnread]         = useState(0);
 
+  // Escuchar notificaciones de sesión en tiempo real vía WebSocket para Administradores
+  useEffect(() => {
+    if (!user || user.rol !== 'ADMINISTRADOR') return;
+
+    let socket;
+    try {
+      const isProd = typeof window !== 'undefined' && 
+                     window.location.hostname !== 'localhost' && 
+                     window.location.hostname !== '127.0.0.1';
+      const socketUrl = import.meta.env.VITE_SOCKET_URL || (isProd ? window.location.origin : 'http://localhost:3001');
+      socket = io(socketUrl, { transports: ['websocket', 'polling'] });
+
+      const entidadId = user.entidadId?._id || user.entidadId;
+      if (entidadId) {
+        socket.emit('join_entidad', entidadId);
+      }
+
+      socket.on('notificacion_sesion', (nuevaNotif) => {
+        const notifEntidadId = String(nuevaNotif.entidadId?._id || nuevaNotif.entidadId || '');
+        const miEntidadId = String(entidadId || '');
+
+        // Filtrar estrictamente para que solo reciba notificaciones de su propia entidad
+        if (miEntidadId && notifEntidadId && miEntidadId !== notifEntidadId) {
+          return;
+        }
+
+        const item = {
+          id: nuevaNotif._id || `temp_${Date.now()}`,
+          icon: nuevaNotif.tipo === 'LOGIN' ? 'login' : 'logout',
+          color: nuevaNotif.tipo === 'LOGIN' ? '#34d399' : '#f59e0b',
+          msg: nuevaNotif.mensaje,
+          rol: nuevaNotif.rol,
+          tipo: nuevaNotif.tipo,
+          time: formatearFechaHora(nuevaNotif.fecha || new Date()),
+          leido: false
+        };
+
+        setNotifs(prev => [item, ...prev.filter(x => String(x.id) !== String(item.id))]);
+        setUnread(u => u + 1);
+      });
+    } catch (err) {
+      console.warn('Socket no inicializado en Layout:', err.message);
+    }
+
+    return () => {
+      if (socket) socket.disconnect();
+    };
+  }, [user]);
+
+  // Consultar notificaciones persistidas y alertas del sistema
   useEffect(() => {
     if (!user) return;
     const fetch = async () => {
@@ -18,33 +77,46 @@ const Layout = ({ children }) => {
         const lista = [];
 
         if (user.rol === 'ADMINISTRADOR') {
-          const [turnos, ventRes] = await Promise.all([
-            api.get('/turnos'),
-            api.get('/ventanillas'),
-          ]);
-          const hoy = new Date().toISOString().split('T')[0];
-          const deHoy = (turnos.data || []).filter(t => {
-            const f = t.fecha || (t.createdAt ? new Date(t.createdAt).toISOString().split('T')[0] : '');
-            return f === hoy;
-          });
-          const total = deHoy.length;
-          if (total > 0) lista.push({ id: 1, icon: 'ticket', color: '#a78bfa', msg: `${total} turno${total !== 1 ? 's' : ''} emitido${total !== 1 ? 's' : ''} hoy`, time: 'Hoy' });
-          const esp = deHoy.filter(t => t.estado === 'ESPERA').length;
-          if (esp > 0) lista.push({ id: 2, icon: 'espera', color: '#fbbf24', msg: `${esp} turno${esp !== 1 ? 's' : ''} en espera`, time: 'Ahora' });
-          const vents = (ventRes.data || []).filter(v => v.estado === 'activa').length;
-          lista.push({ id: 3, icon: 'ventanilla', color: '#34d399', msg: `${vents} ventanilla${vents !== 1 ? 's' : ''} activa${vents !== 1 ? 's' : ''}`, time: 'Sistema' });
-          
-          // Verificar si hay ventanillas inactivas
-          const inactivas = (ventRes.data || []).filter(v => v.estado === 'inactiva');
-          if (inactivas.length > 0) {
-            lista.push({ 
-              id: 'admin_inactivas', 
-              icon: 'alerta', 
-              color: '#f87171', 
-              msg: `${inactivas.length} ventanilla${inactivas.length > 1 ? 's' : ''} inactiva${inactivas.length > 1 ? 's' : ''}`, 
-              time: 'Alerta' 
+          // 1. Obtener eventos reales de inicio y cierre de sesión de operadores y vigilantes
+          try {
+            const notifRes = await api.get('/notificaciones');
+            const data = notifRes.data || {};
+            const eventos = data.notificaciones || [];
+            
+            eventos.forEach(ev => {
+              lista.push({
+                id: ev._id,
+                icon: ev.tipo === 'LOGIN' ? 'login' : 'logout',
+                color: ev.tipo === 'LOGIN' ? '#34d399' : '#f59e0b',
+                msg: ev.mensaje,
+                rol: ev.rol,
+                tipo: ev.tipo,
+                time: formatearFechaHora(ev.fecha),
+                leido: ev.leido
+              });
             });
+
+            // Establecer conteo de no leídas
+            setUnread(data.unreadCount ?? eventos.filter(e => !e.leido).length);
+          } catch (notifErr) {
+            console.error('Error al consultar notificaciones de sesión:', notifErr);
           }
+
+          // 2. Verificar si hay ventanillas inactivas como aviso prioritario
+          try {
+            const ventRes = await api.get('/ventanillas');
+            const inactivas = (ventRes.data || []).filter(v => v.estado === 'inactiva');
+            if (inactivas.length > 0) {
+              lista.unshift({ 
+                id: 'admin_inactivas', 
+                icon: 'alerta', 
+                color: '#f87171', 
+                msg: `${inactivas.length} ventanilla${inactivas.length > 1 ? 's' : ''} inactiva${inactivas.length > 1 ? 's' : ''}`, 
+                time: 'Alerta' 
+              });
+            }
+          } catch {}
+
         } else if (user.rol === 'OPERADOR') {
           const [ventRes, turnosRes] = await Promise.all([
             api.get('/ventanillas'),
@@ -120,13 +192,26 @@ const Layout = ({ children }) => {
         } catch {}
 
         setNotifs(lista);
-        setUnread(lista.length);
+        if (user.rol !== 'ADMINISTRADOR') {
+          setUnread(lista.length);
+        }
       } catch {}
     };
     fetch();
     const interval = setInterval(fetch, 20000);
     return () => clearInterval(interval);
   }, [user]);
+
+  const handleToggleNotif = async () => {
+    const next = !showNotif;
+    setShowNotif(next);
+    if (next && user?.rol === 'ADMINISTRADOR') {
+      setUnread(0);
+      try {
+        await api.put('/notificaciones/marcar-leidas');
+      } catch {}
+    }
+  };
 
   const getRolColor = (rol) => {
     switch(rol) {
@@ -185,7 +270,7 @@ const Layout = ({ children }) => {
             {/* Campana con badge y panel */}
             <div style={{ position: 'relative' }}>
               <button
-                onClick={() => { setShowNotif(p => !p); setUnread(0); }}
+                onClick={handleToggleNotif}
                 style={{
                   width: '38px', height: '38px', borderRadius: '10px',
                   background: showNotif ? 'rgba(124,58,237,0.2)' : 'rgba(255,255,255,0.05)',
@@ -204,7 +289,7 @@ const Layout = ({ children }) => {
                     width: '16px', height: '16px', borderRadius: '50%',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                     border: '2px solid #13111c',
-                  }}>{unread}</span>
+                  }}>{unread > 99 ? '99+' : unread}</span>
                 )}
               </button>
 
@@ -212,18 +297,25 @@ const Layout = ({ children }) => {
               {showNotif && (
                 <div style={{
                   position: 'absolute', top: 'calc(100% + 8px)', right: 0,
-                  width: '300px', zIndex: 9999,
+                  width: '330px', zIndex: 9999,
                   background: '#1a1830', border: '1px solid rgba(124,58,237,0.25)',
                   borderRadius: '16px', boxShadow: '0 20px 40px rgba(0,0,0,0.5)',
                   overflow: 'hidden',
                 }}>
                   <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'1rem 1.25rem', borderBottom:'1px solid rgba(255,255,255,0.07)' }}>
-                    <span style={{ fontSize:'0.9rem', fontWeight:700 }}>Notificaciones</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <span style={{ fontSize:'0.9rem', fontWeight:700 }}>Notificaciones</span>
+                      {user?.rol === 'ADMINISTRADOR' && (
+                        <span style={{ fontSize: '0.65rem', color: '#a78bfa', background: 'rgba(124,58,237,0.15)', padding: '2px 6px', borderRadius: '6px', fontWeight: 600 }}>
+                          Sesiones en Vivo
+                        </span>
+                      )}
+                    </div>
                     <button onClick={() => setShowNotif(false)} style={{ background:'none', border:'none', cursor:'pointer', color:'rgba(255,255,255,0.4)', display:'flex', alignItems:'center' }}>
                       <X size={15} />
                     </button>
                   </div>
-                  <div style={{ display:'flex', flexDirection:'column', gap:'0', maxHeight:'240px', overflowY:'auto' }}>
+                  <div style={{ display:'flex', flexDirection:'column', gap:'0', maxHeight:'300px', overflowY:'auto' }}>
                     {notifs.length === 0 ? (
                       <div style={{ padding:'2rem', textAlign:'center', color:'rgba(255,255,255,0.25)', fontSize:'0.85rem' }}>Sin notificaciones</div>
                     ) : notifs.map(n => (
@@ -239,10 +331,26 @@ const Layout = ({ children }) => {
                           {n.icon === 'usuario'   && <Users    size={16} style={{ color: n.color }} />}
                           {n.icon === 'success'   && <CheckCircle size={16} style={{ color: n.color }} />}
                           {n.icon === 'reloj'     && <Clock    size={16} style={{ color: n.color }} />}
+                          {n.icon === 'login'     && <LogIn    size={16} style={{ color: n.color }} />}
+                          {n.icon === 'logout'    && <LogOut   size={16} style={{ color: n.color }} />}
                         </div>
                         <div style={{ flex:1, minWidth:0 }}>
-                          <div style={{ fontSize:'0.82rem', color:'var(--text-main)', fontWeight:600 }}>{n.msg}</div>
-                          <div style={{ fontSize:'0.7rem', color:'rgba(255,255,255,0.3)', marginTop:'1px' }}>{n.time}</div>
+                          <div style={{ fontSize:'0.82rem', color:'var(--text-main)', fontWeight:600, lineHeight: 1.3 }}>{n.msg}</div>
+                          <div style={{ fontSize:'0.7rem', color:'rgba(255,255,255,0.38)', marginTop:'3px', display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
+                            <span>{n.time}</span>
+                            {n.rol && (
+                              <span style={{
+                                fontSize: '0.62rem',
+                                padding: '1px 5px',
+                                borderRadius: '4px',
+                                background: n.rol === 'OPERADOR' ? 'rgba(52, 211, 153, 0.15)' : 'rgba(251, 191, 36, 0.15)',
+                                color: n.rol === 'OPERADOR' ? '#34d399' : '#fbbf24',
+                                fontWeight: 700
+                              }}>
+                                {n.rol}
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </div>
                     ))}

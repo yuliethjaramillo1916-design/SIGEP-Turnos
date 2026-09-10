@@ -117,6 +117,32 @@ exports.login = async (req, res) => {
             } catch (err) {}
         }
 
+        // ── 7.1 Notificar al Administrador de la entidad si ingresa un OPERADOR o VIGILANTE
+        if (['OPERADOR', 'VIGILANTE'].includes(usuario.rol) && usuario.entidadId) {
+            try {
+                const Notificacion = require('../models/Notificacion');
+                const socketService = require('../services/socketService');
+                const nombreCompleto = `${usuario.nombre} ${usuario.apellido}`.trim();
+                const rolEtiqueta = usuario.rol === 'OPERADOR' ? 'Operador' : 'Vigilante';
+
+                const notif = await Notificacion.create({
+                    entidadId: usuario.entidadId,
+                    usuario: usuario._id,
+                    nombreUsuario: nombreCompleto,
+                    rol: usuario.rol,
+                    tipo: 'LOGIN',
+                    titulo: `${rolEtiqueta} ingresó`,
+                    mensaje: `${nombreCompleto} (${rolEtiqueta}) inició sesión`,
+                    fecha: new Date(),
+                    leido: false
+                });
+
+                socketService.emitNotificacionSesion(usuario.entidadId, notif);
+            } catch (notifErr) {
+                console.error('Error registrando notificación de login:', notifErr.message);
+            }
+        }
+
         // ── 8. Responder con datos completos ────────────────────────────────
         return res.status(200).json({
             _id:       usuario._id,
@@ -139,6 +165,44 @@ exports.login = async (req, res) => {
     } catch (error) {
         console.error('Error en Login:', error);
         res.status(500).json({ message: 'Error interno del servidor' });
+    }
+};
+
+// @desc    Cerrar sesión y registrar evento de salida para OPERADOR y VIGILANTE
+// @route   POST /api/auth/logout
+// @access  Privado
+exports.logout = async (req, res) => {
+    try {
+        const usuario = req.user;
+        if (usuario && ['OPERADOR', 'VIGILANTE'].includes(usuario.rol) && usuario.entidadId) {
+            try {
+                const Notificacion = require('../models/Notificacion');
+                const socketService = require('../services/socketService');
+                const nombreCompleto = `${usuario.nombre} ${usuario.apellido}`.trim();
+                const rolEtiqueta = usuario.rol === 'OPERADOR' ? 'Operador' : 'Vigilante';
+
+                const notif = await Notificacion.create({
+                    entidadId: usuario.entidadId,
+                    usuario: usuario._id,
+                    nombreUsuario: nombreCompleto,
+                    rol: usuario.rol,
+                    tipo: 'LOGOUT',
+                    titulo: `${rolEtiqueta} cerró sesión`,
+                    mensaje: `${nombreCompleto} (${rolEtiqueta}) cerró su sesión`,
+                    fecha: new Date(),
+                    leido: false
+                });
+
+                socketService.emitNotificacionSesion(usuario.entidadId, notif);
+            } catch (notifErr) {
+                console.error('Error registrando notificación de logout:', notifErr.message);
+            }
+        }
+
+        return res.status(200).json({ message: 'Sesión finalizada correctamente' });
+    } catch (error) {
+        console.error('Error en logout:', error);
+        return res.status(500).json({ message: 'Error al procesar cierre de sesión' });
     }
 };
 
