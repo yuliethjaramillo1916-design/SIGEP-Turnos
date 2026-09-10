@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Ticket, Heart, Printer, Clock, CheckCircle2 } from 'lucide-react';
 import api from '../services/api';
 import DarkSelect from '../components/DarkSelect';
@@ -475,10 +476,27 @@ const CrearTicket = () => {
 
       </div>{/* fin grid */}
 
-      {/* Modal Ticket */}
-      {showTicketModal && generatedTicket && (
-        <div className="modal-overlay" style={{ background: 'rgba(0,0,0,0.75)' }}>
-          <div className="modal-content" style={{ maxWidth: '380px', padding: '1.5rem', borderRadius: '16px' }}>
+      {/* Modal Ticket — Renderizado en document.body para cubrir header y pantalla completa */}
+      {showTicketModal && generatedTicket && createPortal(
+        <div className="modal-overlay" style={{
+          position: 'fixed',
+          inset: 0,
+          background: 'rgba(5, 4, 15, 0.88)',
+          backdropFilter: 'blur(12px)',
+          zIndex: 99999,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '1rem'
+        }}>
+          <div className="modal-content" style={{
+            maxWidth: '380px',
+            padding: '1.5rem',
+            borderRadius: '16px',
+            position: 'relative',
+            zIndex: 100000,
+            boxShadow: '0 25px 60px rgba(0,0,0,0.8), 0 0 30px rgba(124,58,237,0.2)'
+          }}>
             <div id="ticket-print-content" style={{
               background: '#f8fafc', border: '2px solid #cbd5e1',
               padding: '2rem 1.5rem', borderRadius: '10px',
@@ -511,7 +529,8 @@ const CrearTicket = () => {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       <style>{`
