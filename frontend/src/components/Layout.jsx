@@ -19,6 +19,10 @@ const Layout = ({ children }) => {
   const [showNotif, setShowNotif]   = useState(false);
   const [notifs, setNotifs]         = useState([]);
   const [unread, setUnread]         = useState(0);
+  const [horarioCerrado, setHorarioCerrado]       = useState(false);
+  const [horarioTexto, setHorarioTexto]           = useState('');
+  const [showModalCerrado, setShowModalCerrado]   = useState(false);
+  const [showBannerCerrado, setShowBannerCerrado] = useState(true);
 
   // Escuchar notificaciones de sesión en tiempo real vía WebSocket para Administradores
   useEffect(() => {
@@ -161,8 +165,30 @@ const Layout = ({ children }) => {
         // Comprobar horario de atención para alertas de cierre
         try {
           const configRes = await api.get('/configuracion');
-          if (configRes.data?.horario_atencion) {
-            const infoHor = evaluarHorarioAtencion(configRes.data.horario_atencion);
+          const horStr = configRes.data?.horario_atencion || '08:00 - 18:00';
+          setHorarioTexto(horStr);
+          const infoHor = evaluarHorarioAtencion(horStr);
+
+          if (infoHor.estado === 'cerrado') {
+            setHorarioCerrado(true);
+
+            // Alerta al ingresar para Operador o Vigilante si la jornada finalizó
+            if (['OPERADOR', 'VIGILANTE'].includes(user.rol)) {
+              const sessionKey = `aviso_cierre_${user._id || 'user'}_${new Date().toISOString().split('T')[0]}`;
+              if (!sessionStorage.getItem(sessionKey)) {
+                setShowModalCerrado(true);
+              }
+            }
+
+            lista.push({
+              id: 'horario_cerrado',
+              icon: 'reloj',
+              color: '#f87171',
+              msg: `Emisión de tickets cerrada para hoy (${infoHor.horaCierre}).`,
+              time: 'Cerrado'
+            });
+          } else {
+            setHorarioCerrado(false);
             if (infoHor.estado === 'aviso_10') {
               lista.unshift({
                 id: 'horario_cierre_10',
@@ -179,14 +205,6 @@ const Layout = ({ children }) => {
                 msg: `Horario de atención: cierre en ${infoHor.minutosParaCierre} min (${infoHor.horaCierre}).`,
                 time: 'Horario'
               });
-            } else if (infoHor.estado === 'cerrado') {
-              lista.push({
-                id: 'horario_cerrado',
-                icon: 'reloj',
-                color: '#f87171',
-                msg: `Emisión de tickets cerrada para hoy (${infoHor.horaCierre}).`,
-                time: 'Cerrado'
-              });
             }
           }
         } catch {}
@@ -201,6 +219,14 @@ const Layout = ({ children }) => {
     const interval = setInterval(fetch, 20000);
     return () => clearInterval(interval);
   }, [user]);
+
+  const cerrarModalCerrado = () => {
+    setShowModalCerrado(false);
+    if (user?._id) {
+      const sessionKey = `aviso_cierre_${user._id}_${new Date().toISOString().split('T')[0]}`;
+      sessionStorage.setItem(sessionKey, 'true');
+    }
+  };
 
   const handleToggleNotif = async () => {
     const next = !showNotif;
@@ -392,6 +418,52 @@ const Layout = ({ children }) => {
           </div>
         </header>
 
+        {/* ── Banner Superior de Horario Finalizado para Operadores y Vigilantes ── */}
+        {showBannerCerrado && ['OPERADOR', 'VIGILANTE'].includes(user?.rol) && horarioCerrado && (
+          <div style={{
+            background: 'linear-gradient(90deg, rgba(239, 68, 68, 0.18) 0%, rgba(185, 28, 28, 0.25) 50%, rgba(239, 68, 68, 0.18) 100%)',
+            borderBottom: '1px solid rgba(239, 68, 68, 0.35)',
+            backdropFilter: 'blur(10px)',
+            padding: '0.65rem 2rem',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexShrink: 0,
+            zIndex: 90,
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+              <div style={{
+                width: '28px', height: '28px', borderRadius: '8px',
+                background: 'rgba(239, 68, 68, 0.22)', border: '1px solid rgba(239, 68, 68, 0.35)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
+              }}>
+                <Clock size={16} color="#fca5a5" />
+              </div>
+              <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#fee2e2' }}>
+                El horario de atención para hoy ha finalizado (Horario: {horarioTexto || '08:00 - 18:00'})
+              </span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+              <span style={{
+                fontSize: '0.62rem', fontWeight: 800,
+                padding: '0.15rem 0.5rem', borderRadius: '4px',
+                background: 'rgba(239, 68, 68, 0.3)', color: '#fca5a5',
+                border: '1px solid rgba(239, 68, 68, 0.5)',
+                letterSpacing: '0.04em'
+              }}>
+                CERRADO
+              </span>
+              <button
+                onClick={() => setShowBannerCerrado(false)}
+                style={{ background: 'none', border: 'none', color: 'rgba(254, 202, 202, 0.6)', cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center' }}
+                title="Ocultar aviso"
+              >
+                <X size={15} />
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* ── Contenido con scroll ── */}
         <main style={{
           flex: 1,
@@ -421,8 +493,111 @@ const Layout = ({ children }) => {
         </main>
 
       </div>
+
+      {/* ── Modal de Aviso al Ingresar Fuera de Horario para Operador y Vigilante ── */}
+      {showModalCerrado && ['OPERADOR', 'VIGILANTE'].includes(user?.rol) && horarioCerrado && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          zIndex: 10000,
+          background: 'rgba(5, 4, 12, 0.78)',
+          backdropFilter: 'blur(10px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '1.5rem'
+        }}>
+          <div style={{
+            background: 'linear-gradient(145deg, #1b182b 0%, #141222 100%)',
+            border: '1px solid rgba(239, 68, 68, 0.4)',
+            borderRadius: '20px',
+            padding: '2.25rem 2rem',
+            maxWidth: '460px',
+            width: '100%',
+            boxShadow: '0 25px 50px rgba(0, 0, 0, 0.7), 0 0 30px rgba(239, 68, 68, 0.12)',
+            textAlign: 'center',
+            position: 'relative'
+          }}>
+            {/* Botón cerrar X superior */}
+            <button
+              onClick={cerrarModalCerrado}
+              style={{
+                position: 'absolute', top: '16px', right: '16px',
+                background: 'rgba(255,255,255,0.06)', border: 'none',
+                borderRadius: '8px', width: '30px', height: '30px',
+                color: 'rgba(255,255,255,0.5)', cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center'
+              }}
+            >
+              <X size={16} />
+            </button>
+
+            {/* Icono destacado */}
+            <div style={{
+              width: '58px', height: '58px', borderRadius: '16px',
+              background: 'rgba(239, 68, 68, 0.15)',
+              border: '1px solid rgba(239, 68, 68, 0.35)',
+              margin: '0 auto 1.25rem',
+              display: 'flex', alignItems: 'center', justifyContent: 'center'
+            }}>
+              <Clock size={28} color="#f87171" />
+            </div>
+
+            {/* Píldora de estado */}
+            <div style={{
+              display: 'inline-block',
+              fontSize: '0.68rem', fontWeight: 800,
+              padding: '0.2rem 0.65rem', borderRadius: '9999px',
+              background: 'rgba(239, 68, 68, 0.2)', color: '#fca5a5',
+              border: '1px solid rgba(239, 68, 68, 0.4)',
+              letterSpacing: '0.05em', textTransform: 'uppercase',
+              marginBottom: '1rem'
+            }}>
+              Atención Fuera de Horario
+            </div>
+
+            {/* Mensaje principal exacto */}
+            <h3 style={{
+              fontSize: '1.05rem', fontWeight: 700, color: '#fef2f2',
+              lineHeight: 1.4, margin: '0 0 0.75rem 0'
+            }}>
+              El horario de atención para hoy ha finalizado (Horario: {horarioTexto || '08:00 - 18:00'})
+            </h3>
+
+            {/* Explicación de apoyo */}
+            <p style={{
+              fontSize: '0.82rem', color: 'rgba(255, 255, 255, 0.6)',
+              lineHeight: 1.5, margin: '0 0 1.75rem 0'
+            }}>
+              Estimado/a <strong>{user?.nombre}</strong>, la jornada operativa de atención para la entidad ha culminado. Puedes consultar registros anteriores o cerrar tu sesión.
+            </p>
+
+            {/* Botón de acción */}
+            <button
+              onClick={cerrarModalCerrado}
+              style={{
+                width: '100%',
+                background: 'linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%)',
+                color: 'white',
+                border: 'none',
+                borderRadius: '12px',
+                padding: '0.85rem 1.5rem',
+                fontSize: '0.88rem',
+                fontWeight: 700,
+                cursor: 'pointer',
+                boxShadow: '0 4px 15px rgba(124, 58, 237, 0.4)',
+                transition: 'all 0.2s'
+              }}
+            >
+              Entendido
+            </button>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 };
 
 export default Layout;
+
