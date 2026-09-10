@@ -69,8 +69,8 @@
   /* Paleta morada principal adaptada */
   --primary:        #7c3aed;
   --primary-hover:  #6d28d9;
-  --primary-light:  rgba(124, 58, 237, 0.10);
-  --primary-border: rgba(124, 58, 237, 0.25);
+  --primary-light:  rgba(124, 58, 237, 0.12);
+  --primary-border: rgba(124, 58, 237, 0.28);
   --primary-glow:   rgba(124, 58, 237, 0.20);
 
   /* Superficie — LIGHT */
@@ -78,16 +78,16 @@
   --bg-card:    #ffffff;
   --bg-subtle:  #f1f5f9;
   --bg-sidebar: #ffffff;
-  --bg-header:  rgba(255, 255, 255, 0.95);
+  --bg-header:  rgba(255, 255, 255, 0.96);
 
-  /* Texto — Alto contraste: Letras oscuras/negras */
-  --text-main:  #0f172a;
-  --text-muted: #475569;
-  --text-light: #64748b;
+  /* Texto — Alto contraste profundo: Negro sólido y Pizarra oscuro */
+  --text-main:  #09090b;
+  --text-muted: #1e293b;
+  --text-light: #334155;
   --text-white: #ffffff;
 
   /* Bordes */
-  --border:       rgba(0, 0, 0, 0.09);
+  --border:       rgba(0, 0, 0, 0.12);
   --border-focus: #7c3aed;
 
   /* Semánticos */
@@ -563,41 +563,69 @@ h3 { font-size: 1rem; font-weight: 700; color: var(--text-main); }
 
 /* ======================================================
    ADAPTACIÓN GLOBAL MODO CLARO (DATA-THEME="LIGHT")
-   Letras blancas a negras/oscuras, fondos claros
+   Alto contraste: Letras oscuras/negras nítidas y fondos claros
    ====================================================== */
 [data-theme="light"] {
-  color: var(--text-main);
-  background-color: var(--bg-main);
+  color: #09090b !important;
+  background-color: var(--bg-main) !important;
 }
 
 [data-theme="light"] body {
-  background-color: var(--bg-main);
-  color: var(--text-main);
+  background-color: var(--bg-main) !important;
+  color: #09090b !important;
 }
 
-/* Títulos y textos principales */
+/* Títulos y textos principales en negro profundo */
 [data-theme="light"] h1,
 [data-theme="light"] h2,
 [data-theme="light"] h3,
 [data-theme="light"] h4,
 [data-theme="light"] h5,
 [data-theme="light"] h6 {
-  color: var(--text-main) !important;
+  color: #050505 !important;
+  font-weight: 800;
+}
+
+[data-theme="light"] p {
+  color: #1e293b !important;
+}
+
+/* Reglas universales: letras blancas o semitransparentes en fondos claros se convierten en carbón oscuro */
+[data-theme="light"] p[style*="color: rgba(255, 255, 255,"],
+[data-theme="light"] p[style*="color:rgba(255,255,255,"],
+[data-theme="light"] span[style*="color: rgba(255, 255, 255,"],
+[data-theme="light"] span[style*="color:rgba(255,255,255,"],
+[data-theme="light"] div[style*="color: rgba(255, 255, 255,"],
+[data-theme="light"] div[style*="color:rgba(255,255,255,"],
+[data-theme="light"] small[style*="color: rgba(255, 255, 255,"],
+[data-theme="light"] a[style*="color: rgba(255, 255, 255,"] {
+  color: #1e293b !important;
+}
+
+[data-theme="light"] p[style*="color: white"],
+[data-theme="light"] p[style*="color:white"],
+[data-theme="light"] span[style*="color: white"]:not(.btn-primary *):not(.btn-success *):not(.btn-danger *):not(.btn-warning *):not([class*="badge"] *):not(button[class*="btn-"]):not(.badge),
+[data-theme="light"] span[style*="color:white"]:not(.btn-primary *):not(.btn-success *):not(.btn-danger *):not(.btn-warning *):not([class*="badge"] *):not(button[class*="btn-"]):not(.badge),
+[data-theme="light"] div[style*="color: white"]:not(.btn-primary *):not(.btn-success *):not(.btn-danger *):not(.btn-warning *):not([class*="badge"] *):not(button[class*="btn-"]):not(.badge),
+[data-theme="light"] div[style*="color:white"]:not(.btn-primary *):not(.btn-success *):not(.btn-danger *):not(.btn-warning *):not([class*="badge"] *):not(button[class*="btn-"]):not(.badge),
+[data-theme="light"] *[style*="color: #fff"]:not(.btn-primary *):not(.btn-success *):not(.btn-danger *):not(.btn-warning *):not([class*="badge"] *):not(button[class*="btn-"]):not(.badge),
+[data-theme="light"] *[style*="color:#fff"]:not(.btn-primary *):not(.btn-success *):not(.btn-danger *):not(.btn-warning *):not([class*="badge"] *):not(button[class*="btn-"]):not(.badge) {
+  color: #09090b !important;
 }
 
 /* Tarjetas y contenedores */
 [data-theme="light"] .card {
   background: var(--bg-card);
-  border: 1px solid #e2e8f0;
-  box-shadow: var(--shadow);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
 }
 
 [data-theme="light"] .card:hover {
   border-color: rgba(124, 58, 237, 0.3);
-  box-shadow: var(--shadow-md);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.07);
 }
 
-/* Tablas */
+/* Tablas con contraste oscuro nítido */
 [data-theme="light"] .table-container {
   background: #ffffff;
   border: 1px solid #e2e8f0;
@@ -606,16 +634,17 @@ h3 { font-size: 1rem; font-weight: 700; color: var(--text-main); }
 
 [data-theme="light"] thead tr {
   background: #f8fafc;
-  border-bottom: 1.5px solid #e2e8f0;
+  border-bottom: 2px solid #e2e8f0;
 }
 
 [data-theme="light"] th {
-  color: #64748b;
+  color: #1e293b;
+  font-weight: 800;
 }
 
 [data-theme="light"] td {
   border-top: 1px solid #f1f5f9;
-  color: #1e293b;
+  color: #09090b;
 }
 
 [data-theme="light"] tbody tr:hover {
@@ -624,7 +653,8 @@ h3 { font-size: 1rem; font-weight: 700; color: var(--text-main); }
 
 /* Formularios y controles */
 [data-theme="light"] label {
-  color: #334155;
+  color: #0f172a;
+  font-weight: 700;
 }
 
 [data-theme="light"] input[type="text"],
@@ -636,7 +666,7 @@ h3 { font-size: 1rem; font-weight: 700; color: var(--text-main); }
 [data-theme="light"] select,
 [data-theme="light"] textarea {
   border: 1.5px solid #cbd5e1;
-  color: #0f172a;
+  color: #09090b;
   background: #ffffff;
   color-scheme: light;
 }
@@ -651,19 +681,20 @@ h3 { font-size: 1rem; font-weight: 700; color: var(--text-main); }
 
 [data-theme="light"] input::placeholder,
 [data-theme="light"] textarea::placeholder {
-  color: #94a3b8;
+  color: #64748b;
 }
 
 [data-theme="light"] select option {
   background: #ffffff;
-  color: #0f172a;
+  color: #09090b;
 }
 
 /* Botones outline */
 [data-theme="light"] .btn-outline {
   border-color: #cbd5e1;
-  color: #334155;
+  color: #0f172a;
   background: #ffffff;
+  font-weight: 700;
 }
 
 [data-theme="light"] .btn-outline:hover:not(:disabled) {
@@ -674,14 +705,14 @@ h3 { font-size: 1rem; font-weight: 700; color: var(--text-main); }
 
 /* Modales */
 [data-theme="light"] .modal-overlay {
-  background: rgba(15, 23, 42, 0.55);
+  background: rgba(15, 23, 42, 0.6);
 }
 
 [data-theme="light"] .modal-content {
   background: #ffffff !important;
   border: 1px solid #e2e8f0 !important;
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.18) !important;
-  color: #0f172a !important;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.2) !important;
+  color: #09090b !important;
 }
 
 [data-theme="light"] .modal-header,
@@ -702,7 +733,7 @@ h3 { font-size: 1rem; font-weight: 700; color: var(--text-main); }
   background: #94a3b8;
 }
 
-/* Menú lateral Sidebar adaptado a Modo Claro */
+/* Menú lateral Sidebar adaptado a Modo Claro (Textos oscuros y legibles) */
 [data-theme="light"] aside {
   background: #ffffff !important;
   border-right: 1px solid #e2e8f0 !important;
@@ -711,35 +742,47 @@ h3 { font-size: 1rem; font-weight: 700; color: var(--text-main); }
 
 [data-theme="light"] aside .sidebar-logo,
 [data-theme="light"] aside div[style*="SIGEP"] {
+  color: #09090b !important;
+}
+
+[data-theme="light"] aside a div {
   color: #0f172a !important;
+  font-weight: 600 !important;
 }
 
-[data-theme="light"] aside a:not([class*="active"]) div {
-  color: #64748b !important;
-}
-
-[data-theme="light"] aside a:not([class*="active"]):hover div {
-  background: #f8fafc !important;
-  color: #7c3aed !important;
+[data-theme="light"] aside a div div svg {
+  color: #334155 !important;
 }
 
 [data-theme="light"] aside a.active div,
 [data-theme="light"] aside a[aria-current="page"] div {
   background: rgba(124, 58, 237, 0.12) !important;
-  color: #7c3aed !important;
-  border-left-color: #7c3aed !important;
+  color: #6d28d9 !important;
+  font-weight: 800 !important;
+  border-left-color: #6d28d9 !important;
 }
 
 [data-theme="light"] aside a.active div div,
 [data-theme="light"] aside a[aria-current="page"] div div {
   background: rgba(124, 58, 237, 0.18) !important;
-  color: #7c3aed !important;
+  color: #6d28d9 !important;
+}
+
+[data-theme="light"] aside a.active div div svg,
+[data-theme="light"] aside a[aria-current="page"] div div svg {
+  color: #6d28d9 !important;
+}
+
+[data-theme="light"] aside a:not([class*="active"]):hover div {
+  background: #f8fafc !important;
+  color: #6d28d9 !important;
 }
 
 [data-theme="light"] aside button {
   background: #f8fafc !important;
   border-color: #e2e8f0 !important;
-  color: #475569 !important;
+  color: #0f172a !important;
+  font-weight: 600 !important;
 }
 
 [data-theme="light"] aside button:hover {
@@ -750,7 +793,7 @@ h3 { font-size: 1rem; font-weight: 700; color: var(--text-main); }
 
 /* Cabeceras Header en Modo Claro */
 [data-theme="light"] header {
-  background: rgba(255, 255, 255, 0.95) !important;
+  background: rgba(255, 255, 255, 0.96) !important;
   border-bottom: 1px solid #e2e8f0 !important;
   box-shadow: 0 2px 14px rgba(0, 0, 0, 0.05) !important;
 }
@@ -759,7 +802,7 @@ h3 { font-size: 1rem; font-weight: 700; color: var(--text-main); }
 [data-theme="light"] header div[style*="color:white"],
 [data-theme="light"] header span[style*="color: white"],
 [data-theme="light"] header span[style*="color:white"] {
-  color: #0f172a !important;
+  color: #09090b !important;
 }
 
 /* Contenido Principal */
@@ -770,33 +813,7 @@ h3 { font-size: 1rem; font-weight: 700; color: var(--text-main); }
 /* Orbes decorativos de fondo en modo claro */
 [data-theme="light"] .main-content::before,
 [data-theme="light"] main > div[style*="radial-gradient"] {
-  opacity: 0.25;
-}
-
-/* Adaptación de textos e indicadores que tenían 'color: white' en modo oscuro */
-[data-theme="light"] .card span[style*="color: white"],
-[data-theme="light"] .card span[style*="color:white"],
-[data-theme="light"] .card div[style*="color: white"],
-[data-theme="light"] .card div[style*="color:white"],
-[data-theme="light"] .modal-content span[style*="color: white"],
-[data-theme="light"] .modal-content span[style*="color:white"],
-[data-theme="light"] .modal-content div[style*="color: white"],
-[data-theme="light"] .modal-content div[style*="color:white"],
-[data-theme="light"] .table-container span[style*="color: white"],
-[data-theme="light"] .table-container span[style*="color:white"] {
-  color: #0f172a !important;
-}
-
-/* Textos secundarios semitransparentes a tonos slate de alto contraste */
-[data-theme="light"] .card span[style*="color: rgba(255, 255, 255,"],
-[data-theme="light"] .card span[style*="color:rgba(255,255,255,"],
-[data-theme="light"] .card div[style*="color: rgba(255, 255, 255,"],
-[data-theme="light"] .card div[style*="color:rgba(255,255,255,"],
-[data-theme="light"] .modal-content span[style*="color: rgba(255, 255, 255,"],
-[data-theme="light"] .modal-content span[style*="color:rgba(255,255,255,"],
-[data-theme="light"] .modal-content div[style*="color: rgba(255, 255, 255,"],
-[data-theme="light"] .modal-content div[style*="color:rgba(255,255,255,"] {
-  color: #64748b !important;
+  opacity: 0.2;
 }
 
 /* Excepciones donde el texto sí debe ser blanco (botones con fondos de color intenso) */
@@ -821,13 +838,44 @@ h3 { font-size: 1rem; font-weight: 700; color: var(--text-main); }
 
 [data-theme="light"] div[style*="background: #1a1830"] div,
 [data-theme="light"] div[style*="background:#1a1830"] div {
-  color: #334155 !important;
+  color: #1e293b !important;
   border-bottom-color: #f1f5f9 !important;
+  font-weight: 500 !important;
 }
 
 [data-theme="light"] div[style*="background: #1a1830"] div:hover,
 [data-theme="light"] div[style*="background:#1a1830"] div:hover {
   background: #f8fafc !important;
   color: #7c3aed !important;
+}
+
+/* Vista de Login / Landing en Modo Claro */
+[data-theme="light"] nav {
+  background: rgba(255, 255, 255, 0.96) !important;
+  border-bottom: 1px solid #e2e8f0 !important;
+}
+
+[data-theme="light"] nav div {
+  color: #09090b !important;
+}
+
+[data-theme="light"] section div[style*="backdropFilter"],
+[data-theme="light"] section div[style*="backdrop-filter"] {
+  background: #ffffff !important;
+  border: 1px solid #e2e8f0 !important;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05) !important;
+}
+
+[data-theme="light"] section div[style*="backdropFilter"] div,
+[data-theme="light"] section div[style*="backdrop-filter"] div {
+  color: #09090b !important;
+}
+
+[data-theme="light"] button[style*="background: transparent"],
+[data-theme="light"] button[style*="background:transparent"] {
+  background: #ffffff !important;
+  border: 1.5px solid #cbd5e1 !important;
+  color: #09090b !important;
+  font-weight: 700 !important;
 }
 

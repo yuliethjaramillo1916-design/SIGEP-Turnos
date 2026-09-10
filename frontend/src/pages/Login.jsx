@@ -180,8 +180,8 @@ export default function Login() {
           </h1>
 
           <p style={{
-            fontSize: '1rem', color: 'rgba(255,255,255,0.55)', lineHeight: 1.7,
-            marginBottom: '2.5rem', maxWidth: '440px',
+            fontSize: '1rem', color: 'var(--text-muted)', lineHeight: 1.7,
+            marginBottom: '2.5rem', maxWidth: '440px', fontWeight: 500,
           }}>
             Transformando la experiencia de atención al ciudadano con tecnología innovadora, gestión eficiente de turnos y procesos más ágiles para entidades públicas.
           </p>
@@ -199,10 +199,11 @@ export default function Login() {
             </button>
             <button style={{
               padding: '0.85rem 2rem', borderRadius: '10px',
-              border: '1px solid rgba(255,255,255,0.15)',
-              background: 'transparent',
-              color: 'rgba(255,255,255,0.7)', fontWeight: 600, fontSize: '0.95rem',
+              border: '1.5px solid var(--border)',
+              background: 'var(--bg-card)',
+              color: 'var(--text-main)', fontWeight: 700, fontSize: '0.95rem',
               cursor: 'pointer', fontFamily: 'inherit',
+              boxShadow: 'var(--shadow-xs)',
               transition: 'all 0.2s',
             }}>
               Explorar Demo
@@ -213,17 +214,17 @@ export default function Login() {
         {/* Derecha — stats */}
         <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           <div style={{
-            background: 'rgba(255,255,255,0.04)', backdropFilter: 'blur(20px)',
-            border: '1px solid rgba(255,255,255,0.08)', borderRadius: '20px',
-            padding: '1.5rem 2rem',
+            background: 'var(--bg-card)', backdropFilter: 'blur(20px)',
+            border: '1px solid var(--border)', borderRadius: '20px',
+            padding: '1.5rem 2rem', boxShadow: 'var(--shadow)',
           }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
               <div>
-                <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'rgba(124,58,237,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '0.75rem' }}>
-                  <Clock size={18} color="#a78bfa" />
+                <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'rgba(124,58,237,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '0.75rem' }}>
+                  <Clock size={18} color="#7c3aed" />
                 </div>
-                <div style={{ fontSize: '1.3rem', fontWeight: 800, color: 'white' }}>Tiempo real</div>
-                <div style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.4)', marginTop: '0.25rem' }}>Plataforma de administración</div>
+                <div style={{ fontSize: '1.3rem', fontWeight: 800, color: 'var(--text-main)' }}>Tiempo real</div>
+                <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.25rem', fontWeight: 600 }}>Plataforma de administración</div>
               </div>
               <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#22c55e', boxShadow: '0 0 8px #22c55e', marginTop: '4px' }}/>
             </div>
@@ -231,22 +232,22 @@ export default function Login() {
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
             <div style={{
-              background: 'rgba(255,255,255,0.04)', backdropFilter: 'blur(20px)',
-              border: '1px solid rgba(255,255,255,0.08)', borderRadius: '16px',
-              padding: '1.25rem',
+              background: 'var(--bg-card)', backdropFilter: 'blur(20px)',
+              border: '1px solid var(--border)', borderRadius: '16px',
+              padding: '1.25rem', boxShadow: 'var(--shadow)',
             }}>
-              <Monitor size={20} color="#a78bfa" style={{ marginBottom: '0.5rem' }} />
-              <div style={{ fontSize: '1.8rem', fontWeight: 900, color: 'white', lineHeight: 1 }}>7</div>
-              <div style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.4)', marginTop: '0.25rem' }}>Ventanillas activas</div>
+              <Monitor size={20} color="#7c3aed" style={{ marginBottom: '0.5rem' }} />
+              <div style={{ fontSize: '1.8rem', fontWeight: 900, color: 'var(--text-main)', lineHeight: 1 }}>7</div>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.25rem', fontWeight: 600 }}>Ventanillas activas</div>
             </div>
             <div style={{
-              background: 'rgba(255,255,255,0.04)', backdropFilter: 'blur(20px)',
-              border: '1px solid rgba(255,255,255,0.08)', borderRadius: '16px',
-              padding: '1.25rem',
+              background: 'var(--bg-card)', backdropFilter: 'blur(20px)',
+              border: '1px solid var(--border)', borderRadius: '16px',
+              padding: '1.25rem', boxShadow: 'var(--shadow)',
             }}>
-              <Ticket size={20} color="#a78bfa" style={{ marginBottom: '0.5rem' }} />
-              <div style={{ fontSize: '1.8rem', fontWeight: 900, color: 'white', lineHeight: 1 }}>{limiteTurnos ?? '∞'}</div>
-              <div style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.4)', marginTop: '0.25rem' }}>Turnos / día</div>
+              <Ticket size={20} color="#7c3aed" style={{ marginBottom: '0.5rem' }} />
+              <div style={{ fontSize: '1.8rem', fontWeight: 900, color: 'var(--text-main)', lineHeight: 1 }}>{limiteTurnos ?? '∞'}</div>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.25rem', fontWeight: 600 }}>Turnos / día</div>
             </div>
           </div>
         </div>

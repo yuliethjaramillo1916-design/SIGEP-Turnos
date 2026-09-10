@@ -279,14 +279,14 @@ const Dashboard = () => {
           }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
               <div>
-                <p style={{ fontSize: '0.8rem', fontWeight: 600, color: 'rgba(255,255,255,0.45)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{card.label}</p>
+                <p style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{card.label}</p>
                 <h2 style={{ fontSize: card.value?.toString().includes('/') ? '1.75rem' : '2.25rem', fontWeight: 800, marginTop: '0.4rem', color: 'var(--text-main)', letterSpacing: '-0.03em' }}>
                   {card.value}
                 </h2>
                 {/* Barra de progreso cuando hay límite */}
                 {card.subtext && summary.limiteTurnos > 0 && (
                   <div style={{ marginTop: '0.5rem' }}>
-                    <div style={{ width: '100%', height: '4px', background: 'rgba(255,255,255,0.08)', borderRadius: '2px', overflow: 'hidden' }}>
+                    <div style={{ width: '100%', height: '4px', background: 'var(--border)', borderRadius: '2px', overflow: 'hidden' }}>
                       <div style={{
                         height: '100%',
                         width: `${Math.min(100, Math.round(summary.totalTurnos / summary.limiteTurnos * 100))}%`,
@@ -295,7 +295,7 @@ const Dashboard = () => {
                         transition: 'width 0.6s ease',
                       }} />
                     </div>
-                    <p style={{ fontSize: '0.68rem', color: summary.totalTurnos >= summary.limiteTurnos ? '#f87171' : 'rgba(255,255,255,0.35)', marginTop: '3px', fontWeight: 600 }}>
+                    <p style={{ fontSize: '0.68rem', color: summary.totalTurnos >= summary.limiteTurnos ? '#f87171' : 'var(--text-muted)', marginTop: '3px', fontWeight: 600 }}>
                       {card.subtext}
                     </p>
                   </div>

@@ -267,11 +267,20 @@ const Layout = ({ children }) => {
   };
 
   const getRolColor = (rol) => {
+    const isLight = theme === 'light';
     switch(rol) {
-      case 'ADMINISTRADOR': return { bg: 'rgba(124,58,237,0.25)', color: '#c4b5fd', border: 'rgba(124,58,237,0.35)' };
-      case 'OPERADOR':      return { bg: 'rgba(5,150,105,0.20)',  color: '#34d399', border: 'rgba(5,150,105,0.35)' };
-      case 'VIGILANTE':     return { bg: 'rgba(217,119,6,0.20)',  color: '#fbbf24', border: 'rgba(217,119,6,0.35)' };
-      default:              return { bg: 'rgba(124,58,237,0.25)', color: '#c4b5fd', border: 'rgba(124,58,237,0.35)' };
+      case 'ADMINISTRADOR': return isLight
+        ? { bg: 'rgba(124,58,237,0.12)', color: '#6d28d9', border: 'rgba(124,58,237,0.3)' }
+        : { bg: 'rgba(124,58,237,0.25)', color: '#c4b5fd', border: 'rgba(124,58,237,0.35)' };
+      case 'OPERADOR': return isLight
+        ? { bg: 'rgba(5,150,105,0.12)', color: '#047857', border: 'rgba(5,150,105,0.3)' }
+        : { bg: 'rgba(5,150,105,0.20)', color: '#34d399', border: 'rgba(5,150,105,0.35)' };
+      case 'VIGILANTE': return isLight
+        ? { bg: 'rgba(217,119,6,0.12)', color: '#b45309', border: 'rgba(217,119,6,0.3)' }
+        : { bg: 'rgba(217,119,6,0.20)', color: '#fbbf24', border: 'rgba(217,119,6,0.35)' };
+      default: return isLight
+        ? { bg: 'rgba(124,58,237,0.12)', color: '#6d28d9', border: 'rgba(124,58,237,0.3)' }
+        : { bg: 'rgba(124,58,237,0.25)', color: '#c4b5fd', border: 'rgba(124,58,237,0.35)' };
     }
   };
 

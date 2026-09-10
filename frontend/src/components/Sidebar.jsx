@@ -95,20 +95,20 @@ const Sidebar = () => {
                   background: isActive
                     ? 'linear-gradient(135deg, rgba(124,58,237,0.35) 0%, rgba(109,40,217,0.25) 100%)'
                     : 'transparent',
-                  color: isActive ? 'white' : 'rgba(255,255,255,0.5)',
-                  fontWeight: isActive ? 700 : 500, fontSize: '0.875rem',
+                  color: isActive ? 'white' : 'var(--text-main)',
+                  fontWeight: isActive ? 800 : 600, fontSize: '0.875rem',
                   transition: 'all 0.2s', cursor: 'pointer',
                   borderLeft: isActive ? '3px solid #a78bfa' : '3px solid transparent',
                   boxShadow: isActive ? '0 2px 12px rgba(124,58,237,0.2)' : 'none',
                 }}
-                onMouseEnter={e => { if (!isActive) { e.currentTarget.style.background = 'rgba(255,255,255,0.06)'; e.currentTarget.style.color = 'rgba(255,255,255,0.85)'; } }}
-                onMouseLeave={e => { if (!isActive) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'rgba(255,255,255,0.5)'; } }}
+                onMouseEnter={e => { if (!isActive) { e.currentTarget.style.background = 'var(--bg-subtle)'; e.currentTarget.style.color = 'var(--primary)'; } }}
+                onMouseLeave={e => { if (!isActive) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-main)'; } }}
               >
                 <div style={{
                   width: '30px', height: '30px', borderRadius: '8px', flexShrink: 0,
-                  background: isActive ? 'rgba(124,58,237,0.4)' : 'rgba(255,255,255,0.06)',
+                  background: isActive ? 'rgba(124,58,237,0.4)' : 'rgba(124,58,237,0.08)',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  color: isActive ? '#c4b5fd' : 'rgba(255,255,255,0.4)',
+                  color: isActive ? '#c4b5fd' : 'var(--text-muted)',
                 }}>
                   {link.icon}
                 </div>
@@ -130,12 +130,12 @@ const Sidebar = () => {
             <a href={publicUrl} target="_blank" rel="noopener noreferrer" style={{
               display: 'flex', alignItems: 'center', gap: '0.75rem',
               padding: '0.65rem 0.875rem', borderRadius: '12px',
-              background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)',
-              color: 'rgba(255,255,255,0.5)', fontWeight: 600, fontSize: '0.875rem',
+              background: 'var(--bg-subtle)', border: '1px solid var(--border)',
+              color: 'var(--text-main)', fontWeight: 600, fontSize: '0.875rem',
               textDecoration: 'none', transition: 'all 0.2s',
             }}>
-              <div style={{ width: '30px', height: '30px', borderRadius: '8px', background: 'rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <Tv size={16} />
+              <div style={{ width: '30px', height: '30px', borderRadius: '8px', background: 'rgba(124,58,237,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Tv size={16} color="#7c3aed" />
               </div>
               Pantalla Pública
             </a>
@@ -146,16 +146,16 @@ const Sidebar = () => {
         <button onClick={logout} style={{
           display: 'flex', alignItems: 'center', gap: '0.75rem',
           padding: '0.65rem 0.875rem', borderRadius: '12px',
-          background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)',
-          color: 'rgba(255,255,255,0.5)', fontWeight: 600, fontSize: '0.875rem',
+          background: 'var(--bg-subtle)', border: '1px solid var(--border)',
+          color: 'var(--text-main)', fontWeight: 600, fontSize: '0.875rem',
           cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.2s',
           width: '100%', textAlign: 'left',
         }}
-          onMouseEnter={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.15)'; e.currentTarget.style.color = '#fca5a5'; e.currentTarget.style.borderColor = 'rgba(239,68,68,0.25)'; }}
-          onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.04)'; e.currentTarget.style.color = 'rgba(255,255,255,0.5)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)'; }}
+          onMouseEnter={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.15)'; e.currentTarget.style.color = '#dc2626'; e.currentTarget.style.borderColor = 'rgba(239,68,68,0.25)'; }}
+          onMouseLeave={e => { e.currentTarget.style.background = 'var(--bg-subtle)'; e.currentTarget.style.color = 'var(--text-main)'; e.currentTarget.style.borderColor = 'var(--border)'; }}
         >
-          <div style={{ width: '30px', height: '30px', borderRadius: '8px', background: 'rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-            <LogOut size={16} />
+          <div style={{ width: '30px', height: '30px', borderRadius: '8px', background: 'rgba(239,68,68,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <LogOut size={16} color="#dc2626" />
           </div>
           Cerrar Sesión
         </button>
