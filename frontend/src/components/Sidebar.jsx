@@ -42,21 +42,21 @@ const Sidebar = () => {
   return (
     <aside style={{
       width: '220px', minWidth: '220px',
-      background: 'linear-gradient(180deg, #13111c 0%, #1a1530 50%, #1e1a35 100%)',
+      background: 'var(--bg-sidebar)',
       display: 'flex', flexDirection: 'column',
       padding: '1.75rem 1rem',
       position: 'sticky', top: 0, height: '100vh',
       overflowY: 'auto', flexShrink: 0,
-      boxShadow: '4px 0 24px rgba(0,0,0,0.4)',
-      borderRight: '1px solid rgba(124,58,237,0.12)',
+      boxShadow: 'var(--shadow)',
+      borderRight: '1px solid var(--border)',
     }}>
 
       {/* Logo */}
       <div style={{ marginBottom: '2rem', paddingLeft: '0.5rem' }}>
-        <div style={{ fontSize: '1.1rem', fontWeight: 900, color: 'white', letterSpacing: '-0.5px', lineHeight: 1 }}>
-          SIGEP<span style={{ color: '#a78bfa' }}>-TURNOS</span>
+        <div style={{ fontSize: '1.1rem', fontWeight: 900, color: 'var(--text-main)', letterSpacing: '-0.5px', lineHeight: 1 }}>
+          SIGEP<span style={{ color: '#7c3aed' }}>-TURNOS</span>
         </div>
-        <div style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.35)', fontWeight: 500, marginTop: '2px', letterSpacing: '0.04em' }}>
+        <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 500, marginTop: '2px', letterSpacing: '0.04em' }}>
           Gestión de Turnos
         </div>
       </div>

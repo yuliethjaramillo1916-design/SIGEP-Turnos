@@ -76,10 +76,10 @@ const DarkSelect = ({ value, onChange, options, placeholder = 'Seleccionar...', 
         style={{
           width: '100%',
           height,
-          background: 'rgba(255,255,255,0.05)',
-          border: `1.5px solid ${open ? 'rgba(124,58,237,0.5)' : 'rgba(255,255,255,0.1)'}`,
+          background: 'var(--bg-card)',
+          border: `1.5px solid ${open ? 'var(--primary)' : 'var(--border)'}`,
           borderRadius: '8px',
-          color: value !== '' && value !== undefined ? 'var(--text-main)' : 'rgba(255,255,255,0.35)',
+          color: value !== '' && value !== undefined ? 'var(--text-main)' : 'var(--text-muted)',
           fontSize: '0.875rem',
           fontWeight: 500,
           display: 'flex',
@@ -92,8 +92,8 @@ const DarkSelect = ({ value, onChange, options, placeholder = 'Seleccionar...', 
           whiteSpace: 'nowrap',
           overflow: 'hidden',
         }}
-        onMouseEnter={e => { if (!open) e.currentTarget.style.borderColor = 'rgba(124,58,237,0.4)'; }}
-        onMouseLeave={e => { if (!open) e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'; }}
+        onMouseEnter={e => { if (!open) e.currentTarget.style.borderColor = 'var(--primary-glow)'; }}
+        onMouseLeave={e => { if (!open) e.currentTarget.style.borderColor = 'var(--border)'; }}
       >
         <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, textAlign: 'left' }}>
           {selected ? selected.label : placeholder}
@@ -103,7 +103,7 @@ const DarkSelect = ({ value, onChange, options, placeholder = 'Seleccionar...', 
           style={{
             flexShrink: 0,
             marginLeft: '0.4rem',
-            opacity: 0.5,
+            opacity: 0.6,
             transform: open ? 'rotate(180deg)' : 'none',
             transition: 'transform 0.2s',
           }}
@@ -120,11 +120,11 @@ const DarkSelect = ({ value, onChange, options, placeholder = 'Seleccionar...', 
             left: dropPos.left,
             width: dropPos.width,
             zIndex: 99999,
-            background: '#1a1830',
-            border: '1px solid rgba(124,58,237,0.3)',
+            background: 'var(--bg-card)',
+            border: '1px solid var(--border)',
             borderRadius: '10px',
             overflow: 'hidden',
-            boxShadow: '0 16px 40px rgba(0,0,0,0.6)',
+            boxShadow: 'var(--shadow-lg)',
             maxHeight: '240px',
             overflowY: 'auto',
           }}
@@ -144,19 +144,19 @@ const DarkSelect = ({ value, onChange, options, placeholder = 'Seleccionar...', 
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
-                background: value === opt.value ? 'rgba(124,58,237,0.22)' : 'transparent',
-                color: value === opt.value ? '#c4b5fd' : 'rgba(255,255,255,0.78)',
-                borderBottom: '1px solid rgba(255,255,255,0.04)',
+                background: value === opt.value ? 'var(--primary-light)' : 'transparent',
+                color: value === opt.value ? 'var(--primary)' : 'var(--text-main)',
+                borderBottom: '1px solid var(--border)',
                 transition: 'background 0.12s',
               }}
-              onMouseEnter={e => { if (value !== opt.value) e.currentTarget.style.background = 'rgba(255,255,255,0.07)'; }}
+              onMouseEnter={e => { if (value !== opt.value) e.currentTarget.style.background = 'var(--bg-subtle)'; }}
               onMouseLeave={e => { if (value !== opt.value) e.currentTarget.style.background = 'transparent'; }}
             >
               <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {opt.label}
               </span>
               {value === opt.value && (
-                <Check size={13} style={{ flexShrink: 0, marginLeft: '0.4rem', color: '#a78bfa' }} />
+                <Check size={13} style={{ flexShrink: 0, marginLeft: '0.4rem', color: 'var(--primary)' }} />
               )}
             </div>
           ))}

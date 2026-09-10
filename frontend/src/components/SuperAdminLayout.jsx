@@ -1,9 +1,11 @@
 import SuperAdminSidebar from './SuperAdminSidebar';
 import { useAuth } from '../context/AuthContext';
-import { ShieldCheck, Activity, Bell, Server } from 'lucide-react';
+import { ShieldCheck, Activity, Bell, Server, Sun, Moon } from 'lucide-react';
+import { useTheme } from '../context/ThemeContext';
 
 const SuperAdminLayout = ({ children }) => {
   const { user } = useAuth();
+  const { theme, toggleTheme } = useTheme();
 
   const getGreeting = () => {
     const h = new Date().getHours();
@@ -15,7 +17,7 @@ const SuperAdminLayout = ({ children }) => {
   const initials = user ? `${user.nombre?.[0] || ''}${user.apellido?.[0] || ''}`.toUpperCase() : 'SA';
 
   return (
-    <div style={{ display: 'flex', height: '100vh', background: '#0a0914' }}>
+    <div style={{ display: 'flex', height: '100vh', background: 'var(--bg-main)' }}>
       <SuperAdminSidebar />
 
       {/* Columna derecha: Header + Contenido con scroll */}
@@ -25,23 +27,23 @@ const SuperAdminLayout = ({ children }) => {
         <header style={{
           height: '64px',
           flexShrink: 0,
-          background: 'rgba(15, 13, 28, 0.95)',
+          background: 'var(--bg-header)',
           backdropFilter: 'blur(20px)',
-          borderBottom: '1px solid rgba(139, 92, 246, 0.15)',
+          borderBottom: '1px solid var(--border)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
           padding: '0 2rem',
-          boxShadow: '0 4px 25px rgba(0,0,0,0.4)',
+          boxShadow: 'var(--shadow)',
           zIndex: 100,
         }}>
 
           {/* Saludo izquierda */}
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.4)', fontWeight: 500 }}>
+            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 500 }}>
               {getGreeting()}, Administrador Maestro
             </div>
-            <div style={{ fontSize: '1rem', fontWeight: 900, color: 'white', lineHeight: 1.2, letterSpacing: '-0.3px' }}>
+            <div style={{ fontSize: '1rem', fontWeight: 900, color: 'var(--text-main)', lineHeight: 1.2, letterSpacing: '-0.3px' }}>
               {user?.nombre} {user?.apellido}
             </div>
           </div>
@@ -61,6 +63,31 @@ const SuperAdminLayout = ({ children }) => {
 
           {/* Perfil derecha */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem', flexShrink: 0 }}>
+
+            {/* Botón Selector Modo Oscuro / Modo Claro */}
+            <button
+              onClick={toggleTheme}
+              title={theme === 'dark' ? 'Cambiar a Modo Claro' : 'Cambiar a Modo Oscuro'}
+              style={{
+                width: '38px', height: '38px', borderRadius: '10px',
+                background: theme === 'light' ? 'rgba(124,58,237,0.08)' : 'rgba(255,255,255,0.05)',
+                border: `1px solid ${theme === 'light' ? 'rgba(124,58,237,0.25)' : 'rgba(255,255,255,0.08)'}`,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                color: theme === 'light' ? '#7c3aed' : '#fbbf24',
+                cursor: 'pointer', transition: 'all 0.2s', flexShrink: 0,
+              }}
+              onMouseEnter={e => {
+                e.currentTarget.style.transform = 'scale(1.05)';
+                e.currentTarget.style.borderColor = 'rgba(124,58,237,0.4)';
+              }}
+              onMouseLeave={e => {
+                e.currentTarget.style.transform = 'scale(1)';
+                e.currentTarget.style.borderColor = theme === 'light' ? 'rgba(124,58,237,0.25)' : 'rgba(255,255,255,0.08)';
+              }}
+            >
+              {theme === 'dark' ? <Sun size={17} /> : <Moon size={17} />}
+            </button>
+
             {/* Avatar */}
             <div style={{
               width: '38px', height: '38px', borderRadius: '12px', flexShrink: 0,
@@ -74,7 +101,7 @@ const SuperAdminLayout = ({ children }) => {
 
             {/* Rol badge */}
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
-              <span style={{ fontSize: '0.8rem', fontWeight: 800, color: 'white' }}>
+              <span style={{ fontSize: '0.8rem', fontWeight: 800, color: 'var(--text-main)' }}>
                 {user?.email}
               </span>
               <span style={{
@@ -98,7 +125,7 @@ const SuperAdminLayout = ({ children }) => {
           minHeight: 0,
           overflowY: 'auto',
           overflowX: 'clip',
-          background: '#0d0c18',
+          background: 'var(--bg-main)',
           padding: '2rem 2.5rem',
           position: 'relative',
         }}>

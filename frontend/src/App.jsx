@@ -28,6 +28,7 @@ import SuperAdminAuditoria from './pages/superadmin/SuperAdminAuditoria';
 import SuperAdminMonitoreo from './pages/superadmin/SuperAdminMonitoreo';
 import SuperAdminConfiguracion from './pages/superadmin/SuperAdminConfiguracion';
 
+import { ThemeProvider } from './context/ThemeContext';
 import './styles/global.css';
 
 // Componente para manejar la redirección de la raíz '/' según el rol del usuario logueado
@@ -58,7 +59,8 @@ const RootRedirect = () => {
 function App() {
   return (
     <Router basename="/turnos">
-      <AuthProvider>
+      <ThemeProvider>
+        <AuthProvider>
         <Routes>
           {/* Pantalla de inicio de sesión */}
           <Route path="/login" element={<Login />} />
@@ -163,6 +165,7 @@ function App() {
           } />
         </Routes>
       </AuthProvider>
+      </ThemeProvider>
     </Router>
   );
 }

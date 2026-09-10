@@ -1,10 +1,11 @@
 import Sidebar from './Sidebar';
 import { useAuth } from '../context/AuthContext';
-import { Bell, X, CheckCircle, Ticket, Monitor, Users, AlertTriangle, Clock, LogIn, LogOut } from 'lucide-react';
+import { Bell, X, CheckCircle, Ticket, Monitor, Users, AlertTriangle, Clock, LogIn, LogOut, Sun, Moon } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import api from '../services/api';
 import { evaluarHorarioAtencion } from '../utils/horarioAtencion';
 import { io } from 'socket.io-client';
+import { useTheme } from '../context/ThemeContext';
 
 const formatearFechaHora = (fechaStr) => {
   if (!fechaStr) return '';
@@ -16,6 +17,7 @@ const formatearFechaHora = (fechaStr) => {
 
 const Layout = ({ children }) => {
   const { user } = useAuth();
+  const { theme, toggleTheme } = useTheme();
   const [showNotif, setShowNotif]   = useState(false);
   const [notifs, setNotifs]         = useState([]);
   const [unread, setUnread]         = useState(0);
@@ -284,7 +286,7 @@ const Layout = ({ children }) => {
   const initials = user ? `${user.nombre?.[0] || ''}${user.apellido?.[0] || ''}`.toUpperCase() : 'U';
 
   return (
-    <div style={{ display: 'flex', height: '100vh', background: '#0f0e17' }}>
+    <div style={{ display: 'flex', height: '100vh', background: 'var(--bg-main)' }}>
       <Sidebar />
 
       {/* columna derecha: header fijo + contenido con scroll */}
@@ -294,29 +296,53 @@ const Layout = ({ children }) => {
         <header style={{
           height: '64px',
           flexShrink: 0,
-          background: 'rgba(19,17,28,0.9)',
+          background: 'var(--bg-header)',
           backdropFilter: 'blur(20px)',
-          borderBottom: '1px solid rgba(124,58,237,0.12)',
+          borderBottom: '1px solid var(--border)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
           padding: '0 1.25rem 0 2rem',
-          boxShadow: '0 2px 20px rgba(0,0,0,0.3)',
+          boxShadow: 'var(--shadow)',
           zIndex: 100,
         }}>
 
           {/* Saludo izquierda */}
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.35)', fontWeight: 500 }}>
+            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 500 }}>
               {getGreeting()},
             </div>
-            <div style={{ fontSize: '1rem', fontWeight: 800, color: 'white', lineHeight: 1.2 }}>
+            <div style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--text-main)', lineHeight: 1.2 }}>
               {user?.nombre} {user?.apellido}
             </div>
           </div>
 
           {/* Derecha */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexShrink: 0 }}>
+
+            {/* Botón Selector Modo Oscuro / Modo Claro */}
+            <button
+              onClick={toggleTheme}
+              title={theme === 'dark' ? 'Cambiar a Modo Claro' : 'Cambiar a Modo Oscuro'}
+              style={{
+                width: '38px', height: '38px', borderRadius: '10px',
+                background: theme === 'light' ? 'rgba(124,58,237,0.08)' : 'rgba(255,255,255,0.05)',
+                border: `1px solid ${theme === 'light' ? 'rgba(124,58,237,0.25)' : 'rgba(255,255,255,0.08)'}`,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                color: theme === 'light' ? '#7c3aed' : '#fbbf24',
+                cursor: 'pointer', transition: 'all 0.2s', flexShrink: 0,
+              }}
+              onMouseEnter={e => {
+                e.currentTarget.style.transform = 'scale(1.05)';
+                e.currentTarget.style.borderColor = 'rgba(124,58,237,0.4)';
+              }}
+              onMouseLeave={e => {
+                e.currentTarget.style.transform = 'scale(1)';
+                e.currentTarget.style.borderColor = theme === 'light' ? 'rgba(124,58,237,0.25)' : 'rgba(255,255,255,0.08)';
+              }}
+            >
+              {theme === 'dark' ? <Sun size={17} /> : <Moon size={17} />}
+            </button>
 
             {/* Campana con badge y panel */}
             <div style={{ position: 'relative' }}>
@@ -426,7 +452,7 @@ const Layout = ({ children }) => {
 
             {/* Nombre + rol — columna */}
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
-              <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'white', whiteSpace: 'nowrap' }}>
+              <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-main)', whiteSpace: 'nowrap' }}>
                 {user?.nombre}
               </span>
               <span style={{
@@ -495,7 +521,7 @@ const Layout = ({ children }) => {
           minHeight: 0,
           overflowY: 'auto',
           overflowX: 'clip',
-          background: '#13111c',
+          background: 'var(--bg-main)',
           padding: '2rem 2.5rem',
           position: 'relative',
         }}>
