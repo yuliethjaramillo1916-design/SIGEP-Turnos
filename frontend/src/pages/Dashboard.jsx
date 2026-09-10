@@ -146,13 +146,14 @@ const Dashboard = () => {
         {/* Fecha + hora */}
         <div style={{
           display:'flex', flexDirection:'column', alignItems:'flex-end', gap:'2px',
-          background:'rgba(255,255,255,0.04)', border:'1px solid rgba(124,58,237,0.2)',
+          background:'var(--bg-card)', border:'1px solid var(--border)',
           borderRadius:'14px', padding:'0.6rem 1.1rem',
+          boxShadow: 'var(--shadow)',
         }}>
-          <span style={{ fontSize:'0.68rem', fontWeight:700, color:'rgba(255,255,255,0.4)', textTransform:'uppercase', letterSpacing:'0.07em' }}>
+          <span style={{ fontSize:'0.68rem', fontWeight:700, color:'var(--text-muted)', textTransform:'uppercase', letterSpacing:'0.07em' }}>
             {new Date().toLocaleDateString('es-ES', { weekday:'long', day:'numeric', month:'long', year:'numeric' })}
           </span>
-          <span style={{ fontSize:'1.35rem', fontWeight:800, color:'white', letterSpacing:'0.05em', fontVariantNumeric:'tabular-nums', lineHeight:1 }}>
+          <span style={{ fontSize:'1.35rem', fontWeight:800, color:'var(--text-main)', letterSpacing:'0.05em', fontVariantNumeric:'tabular-nums', lineHeight:1 }}>
             {horaActual}
           </span>
         </div>
@@ -202,14 +203,14 @@ const Dashboard = () => {
         }}>
           <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'0.875rem' }}>
             <button onClick={()=>setCalMes(p=>{const d=new Date(p.year,p.month-1,1);return{year:d.getFullYear(),month:d.getMonth()};})}
-              style={{ background:'none', border:'none', cursor:'pointer', color:'rgba(255,255,255,0.4)', display:'flex', padding:'3px' }}>
+              style={{ background:'none', border:'none', cursor:'pointer', color:'var(--text-muted)', display:'flex', padding:'3px' }}>
               <ChevronLeft size={15} />
             </button>
-            <span style={{ fontSize:'0.82rem', fontWeight:800, color:'rgba(255,255,255,0.75)', textTransform:'capitalize' }}>
+            <span style={{ fontSize:'0.82rem', fontWeight:800, color:'var(--text-main)', textTransform:'capitalize' }}>
               {new Date(calMes.year,calMes.month).toLocaleDateString('es-ES',{month:'long',year:'numeric'})}
             </span>
             <button onClick={()=>setCalMes(p=>{const d=new Date(p.year,p.month+1,1);return{year:d.getFullYear(),month:d.getMonth()};})}
-              style={{ background:'none', border:'none', cursor:'pointer', color:'rgba(255,255,255,0.4)', display:'flex', padding:'3px' }}>
+              style={{ background:'none', border:'none', cursor:'pointer', color:'var(--text-muted)', display:'flex', padding:'3px' }}>
               <ChevronRight size={15} />
             </button>
           </div>
@@ -217,7 +218,7 @@ const Dashboard = () => {
           {/* Cabecera días semana */}
           <div style={{ display:'grid', gridTemplateColumns:'repeat(7,1fr)', gap:'1px', marginBottom:'4px' }}>
             {['D','L','M','X','J','V','S'].map(d=>(
-              <div key={d} style={{ textAlign:'center', fontSize:'0.62rem', fontWeight:700, color:'rgba(255,255,255,0.25)', padding:'2px 0' }}>{d}</div>
+              <div key={d} style={{ textAlign:'center', fontSize:'0.62rem', fontWeight:700, color:'var(--text-muted)', padding:'2px 0' }}>{d}</div>
             ))}
           </div>
 
@@ -243,7 +244,7 @@ const Dashboard = () => {
                       textAlign:'center', fontSize:'0.72rem', fontWeight:esHoy?800:400,
                       padding:'5px 2px', borderRadius:'7px', position:'relative',
                       background:esHoy?'linear-gradient(135deg,#7c3aed,#a855f7)':'transparent',
-                      color:esHoy?'white':d?'rgba(255,255,255,0.6)':'transparent',
+                      color:esHoy?'white':d?'var(--text-main)':'transparent',
                       cursor: d ? 'default' : 'default',
                     }}>
                       {d||''}

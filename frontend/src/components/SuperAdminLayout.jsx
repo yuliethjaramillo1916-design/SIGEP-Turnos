@@ -67,25 +67,10 @@ const SuperAdminLayout = ({ children }) => {
             {/* Botón Selector Modo Oscuro / Modo Claro */}
             <button
               onClick={toggleTheme}
-              title={theme === 'dark' ? 'Cambiar a Modo Claro' : 'Cambiar a Modo Oscuro'}
-              style={{
-                width: '38px', height: '38px', borderRadius: '10px',
-                background: theme === 'light' ? 'rgba(124,58,237,0.08)' : 'rgba(255,255,255,0.05)',
-                border: `1px solid ${theme === 'light' ? 'rgba(124,58,237,0.25)' : 'rgba(255,255,255,0.08)'}`,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                color: theme === 'light' ? '#7c3aed' : '#fbbf24',
-                cursor: 'pointer', transition: 'all 0.2s', flexShrink: 0,
-              }}
-              onMouseEnter={e => {
-                e.currentTarget.style.transform = 'scale(1.05)';
-                e.currentTarget.style.borderColor = 'rgba(124,58,237,0.4)';
-              }}
-              onMouseLeave={e => {
-                e.currentTarget.style.transform = 'scale(1)';
-                e.currentTarget.style.borderColor = theme === 'light' ? 'rgba(124,58,237,0.25)' : 'rgba(255,255,255,0.08)';
-              }}
+              className="theme-toggle-btn"
+              title={theme === 'dark' ? 'Modo Oscuro activo (Clic para cambiar a Modo Claro)' : 'Modo Claro activo (Clic para cambiar a Modo Oscuro)'}
             >
-              {theme === 'dark' ? <Sun size={17} /> : <Moon size={17} />}
+              {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
             </button>
 
             {/* Avatar */}

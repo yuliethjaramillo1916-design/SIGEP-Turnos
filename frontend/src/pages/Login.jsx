@@ -5,8 +5,9 @@ import api from '../services/api';
 import { 
   Eye, EyeOff, LogIn, AlertTriangle, X, Shield, Clock, Monitor, 
   Ticket, User, Lock, CalendarCheck, Bell, BarChart3, Users,
-  Building2, ChevronDown, Search
+  Building2, ChevronDown, Search, Sun, Moon
 } from 'lucide-react';
+import { useTheme } from '../context/ThemeContext';
 
 export default function Login() {
   const [showForm, setShowForm] = useState(false);
@@ -26,6 +27,7 @@ export default function Login() {
   
   const dropdownRef = useRef(null);
   const { login }  = useAuth();
+  const { theme, toggleTheme } = useTheme();
   const navigate   = useNavigate();
 
   const isProd = typeof window !== 'undefined' && 
@@ -102,9 +104,9 @@ export default function Login() {
   return (
     <div style={{
       minHeight: '100vh',
-      background: '#0a0a0f',
+      background: 'var(--bg-main)',
       fontFamily: "'Inter','Segoe UI',sans-serif",
-      color: 'white',
+      color: 'var(--text-main)',
       overflowX: 'hidden',
     }}>
 
@@ -113,26 +115,36 @@ export default function Login() {
         position: 'fixed', top: 0, left: 0, right: 0, zIndex: 100,
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         padding: '1.25rem 3rem',
-        background: 'rgba(10,10,15,0.8)',
+        background: 'var(--bg-header)',
         backdropFilter: 'blur(20px)',
-        borderBottom: '1px solid rgba(124,58,237,0.15)',
+        borderBottom: '1px solid var(--border)',
       }}>
-        <div style={{ fontSize: '1.1rem', fontWeight: 800, letterSpacing: '-0.3px' }}>
+        <div style={{ fontSize: '1.1rem', fontWeight: 800, letterSpacing: '-0.3px', color: 'var(--text-main)' }}>
           SIGEP<span style={{ color: '#7c3aed' }}>-Turnos</span>
         </div>
-        <div style={{ fontSize: '0.9rem', color: 'rgba(255,255,255,0.5)', fontWeight: 500 }}>
+        <div style={{ fontSize: '0.9rem', color: 'var(--text-muted)', fontWeight: 500 }}>
           Dashboard
         </div>
-        <button onClick={() => setShowForm(true)} style={{
-          padding: '0.6rem 1.5rem', borderRadius: '50px', border: 'none',
-          background: 'linear-gradient(135deg, #7c3aed, #a855f7)',
-          color: 'white', fontWeight: 700, fontSize: '0.875rem',
-          cursor: 'pointer', fontFamily: 'inherit',
-          boxShadow: '0 4px 20px rgba(124,58,237,0.5)',
-          transition: 'all 0.2s',
-        }}>
-          Iniciar Sesión
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
+          <button
+            type="button"
+            onClick={toggleTheme}
+            className="theme-toggle-btn"
+            title={theme === 'dark' ? 'Modo Oscuro activo (Clic para cambiar a Modo Claro)' : 'Modo Claro activo (Clic para cambiar a Modo Oscuro)'}
+          >
+            {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+          </button>
+          <button onClick={() => setShowForm(true)} style={{
+            padding: '0.6rem 1.5rem', borderRadius: '50px', border: 'none',
+            background: 'linear-gradient(135deg, #7c3aed, #a855f7)',
+            color: 'white', fontWeight: 700, fontSize: '0.875rem',
+            cursor: 'pointer', fontFamily: 'inherit',
+            boxShadow: '0 4px 20px rgba(124,58,237,0.5)',
+            transition: 'all 0.2s',
+          }}>
+            Iniciar Sesión
+          </button>
+        </div>
       </nav>
 
       {/* ══════════════ HERO ══════════════ */}
