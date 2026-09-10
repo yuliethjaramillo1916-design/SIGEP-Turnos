@@ -24,6 +24,19 @@ const Layout = ({ children }) => {
   const [showModalCerrado, setShowModalCerrado]   = useState(false);
   const [showBannerCerrado, setShowBannerCerrado] = useState(true);
 
+  // Comprobación inmediata al montar Layout para Operador y Vigilante
+  useEffect(() => {
+    if (user && ['OPERADOR', 'VIGILANTE'].includes(user.rol)) {
+      const hStr = user.entidad?.horarioAtencion || '08:00 - 18:00';
+      setHorarioTexto(hStr);
+      const evalInicial = evaluarHorarioAtencion(hStr);
+      if (!evalInicial.activo || evalInicial.estado === 'cerrado' || evalInicial.estado === 'antes_apertura') {
+        setHorarioCerrado(true);
+        setShowModalCerrado(true);
+      }
+    }
+  }, [user]);
+
   // Escuchar notificaciones de sesión en tiempo real vía WebSocket para Administradores
   useEffect(() => {
     if (!user || user.rol !== 'ADMINISTRADOR') return;
@@ -165,26 +178,26 @@ const Layout = ({ children }) => {
         // Comprobar horario de atención para alertas de cierre
         try {
           const configRes = await api.get('/configuracion');
-          const horStr = configRes.data?.horario_atencion || '08:00 - 18:00';
+          const horStr = configRes.data?.horario_atencion || user?.entidad?.horarioAtencion || '08:00 - 18:00';
           setHorarioTexto(horStr);
           const infoHor = evaluarHorarioAtencion(horStr);
 
-          if (infoHor.estado === 'cerrado') {
+          // Está cerrado si ya pasó la hora de cierre o si es antes de la hora de apertura
+          const estaCerrado = !infoHor.activo || infoHor.estado === 'cerrado' || infoHor.estado === 'antes_apertura';
+
+          if (estaCerrado) {
             setHorarioCerrado(true);
 
-            // Alerta al ingresar para Operador o Vigilante si la jornada finalizó
+            // Mostrar el modal y el banner al Operador o Vigilante al ingresar
             if (['OPERADOR', 'VIGILANTE'].includes(user.rol)) {
-              const sessionKey = `aviso_cierre_${user._id || 'user'}_${new Date().toISOString().split('T')[0]}`;
-              if (!sessionStorage.getItem(sessionKey)) {
-                setShowModalCerrado(true);
-              }
+              setShowModalCerrado(true);
             }
 
             lista.push({
               id: 'horario_cerrado',
               icon: 'reloj',
               color: '#f87171',
-              msg: `Emisión de tickets cerrada para hoy (${infoHor.horaCierre}).`,
+              msg: `Horario finalizado (${horStr}).`,
               time: 'Cerrado'
             });
           } else {
@@ -207,7 +220,19 @@ const Layout = ({ children }) => {
               });
             }
           }
-        } catch {}
+        } catch (configErr) {
+          console.error('Error al evaluar horario de atención:', configErr);
+          // Fallback por defecto si falla la petición
+          const horFallback = '08:00 - 18:00';
+          setHorarioTexto(horFallback);
+          const infoFallback = evaluarHorarioAtencion(horFallback);
+          if (!infoFallback.activo) {
+            setHorarioCerrado(true);
+            if (['OPERADOR', 'VIGILANTE'].includes(user.rol)) {
+              setShowModalCerrado(true);
+            }
+          }
+        }
 
         setNotifs(lista);
         if (user.rol !== 'ADMINISTRADOR') {

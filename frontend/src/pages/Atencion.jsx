@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
-import { Play, CheckCircle, SkipForward, Pause, RefreshCw, XCircle, Users, Monitor, AlertCircle, Info, ChevronRight, Bell, ArrowRightLeft, UserCheck } from 'lucide-react';
+import { Play, CheckCircle, SkipForward, Pause, RefreshCw, XCircle, Users, Monitor, AlertCircle, Info, ChevronRight, Bell, ArrowRightLeft, UserCheck, Clock } from 'lucide-react';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { io } from 'socket.io-client';
+import { evaluarHorarioAtencion } from '../utils/horarioAtencion';
 
 const Atencion = () => {
   const { user } = useAuth();
@@ -21,7 +22,6 @@ const Atencion = () => {
   const [loading, setLoading] = useState(true);
   const [socketStatus, setSocketStatus] = useState('connecting'); // connecting, connected, disconnected (polling)
   
-  // Estados para reasignación y notificación de turnos
   const [showTransferModal, setShowTransferModal] = useState(false);
   const [targetTramite, setTargetTramite] = useState('');
   const [targetVentanilla, setTargetVentanilla] = useState('');
@@ -29,6 +29,10 @@ const Atencion = () => {
   const [targetMotivo, setTargetMotivo] = useState('');
   const [operadoresDisponibles, setOperadoresDisponibles] = useState([]);
   const [turnoReasignadoPendiente, setTurnoReasignadoPendiente] = useState(null);
+
+  // Estados de Horario de Atención
+  const [horarioInfo, setHorarioInfo] = useState(null);
+  const [horarioStr, setHorarioStr] = useState('08:00 - 18:00');
 
   const socketRef = useRef(null);
   const pollingIntervalRef = useRef(null);
@@ -40,7 +44,20 @@ const Atencion = () => {
       fetchOperadores();
     }
     fetchTramites();
-  }, [user?._id]);
+
+    // Evaluar horario de atención de la entidad
+    const hInit = user?.entidad?.horarioAtencion || '08:00 - 18:00';
+    setHorarioStr(hInit);
+    setHorarioInfo(evaluarHorarioAtencion(hInit));
+
+    api.get('/configuracion')
+      .then(res => {
+        const hConfig = res.data?.horario_atencion || user?.entidad?.horarioAtencion || '08:00 - 18:00';
+        setHorarioStr(hConfig);
+        setHorarioInfo(evaluarHorarioAtencion(hConfig));
+      })
+      .catch(() => {});
+  }, [user]);
 
   // Efecto para inicializar la conexión en tiempo real con Socket.io
   useEffect(() => {
@@ -517,6 +534,50 @@ const Atencion = () => {
           </button>
         )}
       </div>
+
+      {/* Banner de Horario de Atención Finalizado */}
+      {horarioInfo && !horarioInfo.activo && (
+        <div style={{
+          marginBottom: '1.5rem',
+          padding: '1.15rem 1.75rem',
+          background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.16) 0%, rgba(185, 28, 28, 0.22) 100%)',
+          border: '1px solid rgba(239, 68, 68, 0.45)',
+          borderRadius: '16px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: '1rem',
+          boxShadow: '0 8px 24px rgba(239, 68, 68, 0.15)'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+            <div style={{
+              width: '44px', height: '44px', borderRadius: '12px',
+              background: 'rgba(239, 68, 68, 0.22)', border: '1px solid rgba(239, 68, 68, 0.4)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
+            }}>
+              <Clock size={22} color="#fca5a5" />
+            </div>
+            <div>
+              <div style={{ fontSize: '1rem', fontWeight: 800, color: '#fee2e2' }}>
+                El horario de atención para hoy ha finalizado (Horario: {horarioStr})
+              </div>
+              <div style={{ fontSize: '0.82rem', color: 'rgba(254, 202, 202, 0.8)', marginTop: '0.2rem' }}>
+                La jornada operativa de la entidad ha concluido. La emisión y llamado de turnos se encuentra suspendida.
+              </div>
+            </div>
+          </div>
+          <span style={{
+            fontSize: '0.72rem', fontWeight: 800,
+            padding: '0.25rem 0.75rem', borderRadius: '6px',
+            background: 'rgba(239, 68, 68, 0.3)', color: '#fca5a5',
+            border: '1px solid rgba(239, 68, 68, 0.5)',
+            letterSpacing: '0.04em'
+          }}>
+            CERRADO
+          </span>
+        </div>
+      )}
 
       {/* Banner de Advertencia: Ventanilla Inactiva por el Administrador */}
       {isVentanillaInactiva && (
