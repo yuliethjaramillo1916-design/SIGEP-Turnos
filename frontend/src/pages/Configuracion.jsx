@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import {
   Save, Settings, Monitor, Plus, Edit, Trash2,
   Building2, Clock, Hash, CheckCircle, XCircle,
@@ -494,9 +495,9 @@ const Configuracion = () => {
         </div>
       )}
 
-      {/* Modal Ventanilla */}
-      {showVentModal && (
-        <div className="modal-overlay" style={{ background: 'rgba(15, 23, 42, 0.6)' }}>
+      {/* Modal Ventanilla renderizado en document.body para pantalla completa */}
+      {showVentModal && createPortal(
+        <div className="modal-overlay">
           <div className="modal-content" style={{ maxWidth: '440px', borderRadius: '16px' }}>
             <div className="modal-header">
               <h2 style={{ fontSize: '1.2rem', fontWeight: 800 }}>
@@ -556,7 +557,8 @@ const Configuracion = () => {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

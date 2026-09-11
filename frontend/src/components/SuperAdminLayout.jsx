@@ -35,7 +35,7 @@ const SuperAdminLayout = ({ children }) => {
           justifyContent: 'space-between',
           padding: '0 2rem',
           boxShadow: 'var(--shadow)',
-          zIndex: 100,
+          zIndex: 40,
         }}>
 
           {/* Saludo izquierda */}

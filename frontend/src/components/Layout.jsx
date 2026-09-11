@@ -2,6 +2,7 @@ import Sidebar from './Sidebar';
 import { useAuth } from '../context/AuthContext';
 import { Bell, X, CheckCircle, Ticket, Monitor, Users, AlertTriangle, Clock, LogIn, LogOut, Sun, Moon } from 'lucide-react';
 import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import api from '../services/api';
 import { evaluarHorarioAtencion } from '../utils/horarioAtencion';
 import { io } from 'socket.io-client';
@@ -313,7 +314,7 @@ const Layout = ({ children }) => {
           justifyContent: 'space-between',
           padding: '0 1.25rem 0 2rem',
           boxShadow: 'var(--shadow)',
-          zIndex: 100,
+          zIndex: 40,
         }}>
 
           {/* Saludo izquierda */}
@@ -342,59 +343,80 @@ const Layout = ({ children }) => {
             <div style={{ position: 'relative' }}>
               <button
                 onClick={handleToggleNotif}
-                style={{
-                  width: '38px', height: '38px', borderRadius: '10px',
-                  background: showNotif ? 'rgba(124,58,237,0.2)' : 'rgba(255,255,255,0.05)',
-                  border: `1px solid ${showNotif ? 'rgba(124,58,237,0.4)' : 'rgba(255,255,255,0.08)'}`,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  color: showNotif ? '#c4b5fd' : 'rgba(255,255,255,0.5)',
-                  cursor: 'pointer', transition: 'all 0.2s', position: 'relative',
-                }}
+                className={`notif-bell-btn ${showNotif ? 'active' : ''}`}
+                title="Notificaciones"
+                aria-label="Notificaciones"
               >
                 <Bell size={17} />
                 {unread > 0 && (
                   <span style={{
                     position: 'absolute', top: '-4px', right: '-4px',
-                    background: '#f87171', color: 'white',
+                    background: '#ef4444', color: 'white',
                     fontSize: '0.6rem', fontWeight: 800,
                     width: '16px', height: '16px', borderRadius: '50%',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    border: '2px solid #13111c',
+                    border: theme === 'light' ? '2px solid #ffffff' : '2px solid #13111c',
                   }}>{unread > 99 ? '99+' : unread}</span>
                 )}
               </button>
 
               {/* Panel desplegable */}
               {showNotif && (
-                <div style={{
-                  position: 'absolute', top: 'calc(100% + 8px)', right: 0,
-                  width: '330px', zIndex: 9999,
-                  background: '#1a1830', border: '1px solid rgba(124,58,237,0.25)',
-                  borderRadius: '16px', boxShadow: '0 20px 40px rgba(0,0,0,0.5)',
-                  overflow: 'hidden',
-                }}>
-                  <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'1rem 1.25rem', borderBottom:'1px solid rgba(255,255,255,0.07)' }}>
+                <div className="notif-dropdown">
+                  <div style={{
+                    display:'flex', justifyContent:'space-between', alignItems:'center',
+                    padding:'0.9rem 1.25rem', borderBottom:'1px solid var(--border)',
+                    background: theme === 'light' ? '#f8fafc' : 'rgba(255,255,255,0.02)'
+                  }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                      <span style={{ fontSize:'0.9rem', fontWeight:700 }}>Notificaciones</span>
+                      <span style={{ fontSize:'0.9rem', fontWeight: 800, color: 'var(--text-main)' }}>Notificaciones</span>
                       {user?.rol === 'ADMINISTRADOR' && (
-                        <span style={{ fontSize: '0.65rem', color: '#a78bfa', background: 'rgba(124,58,237,0.15)', padding: '2px 6px', borderRadius: '6px', fontWeight: 600 }}>
+                        <span style={{
+                          fontSize: '0.65rem',
+                          color: theme === 'light' ? '#6d28d9' : '#a78bfa',
+                          background: theme === 'light' ? '#ede9fe' : 'rgba(124,58,237,0.18)',
+                          border: theme === 'light' ? '1px solid #ddd6fe' : '1px solid rgba(124,58,237,0.3)',
+                          padding: '2px 7px', borderRadius: '6px', fontWeight: 700
+                        }}>
                           Sesiones en Vivo
                         </span>
                       )}
                     </div>
-                    <button onClick={() => setShowNotif(false)} style={{ background:'none', border:'none', cursor:'pointer', color:'rgba(255,255,255,0.4)', display:'flex', alignItems:'center' }}>
+                    <button
+                      onClick={() => setShowNotif(false)}
+                      style={{
+                        background:'none', border:'none', cursor:'pointer',
+                        color: 'var(--text-muted)', display:'flex', alignItems:'center',
+                        padding: '4px', borderRadius: '6px'
+                      }}
+                      title="Cerrar notificaciones"
+                    >
                       <X size={15} />
                     </button>
                   </div>
                   <div style={{ display:'flex', flexDirection:'column', gap:'0', maxHeight:'300px', overflowY:'auto' }}>
                     {notifs.length === 0 ? (
-                      <div style={{ padding:'2rem', textAlign:'center', color:'rgba(255,255,255,0.25)', fontSize:'0.85rem' }}>Sin notificaciones</div>
+                      <div style={{ padding:'2.5rem 1rem', textAlign:'center', color: 'var(--text-muted)', fontSize:'0.85rem', fontWeight: 500 }}>
+                        <Bell size={24} style={{ margin: '0 auto 0.5rem auto', opacity: 0.35, display: 'block' }} />
+                        Sin notificaciones
+                      </div>
                     ) : notifs.map(n => (
-                      <div key={n.id} style={{ display:'flex', alignItems:'center', gap:'0.875rem', padding:'0.875rem 1.25rem', borderBottom:'1px solid rgba(255,255,255,0.05)', transition:'background 0.15s' }}
-                        onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.04)'}
+                      <div
+                        key={n.id}
+                        style={{
+                          display:'flex', alignItems:'center', gap:'0.875rem',
+                          padding:'0.875rem 1.25rem', borderBottom:'1px solid var(--border)',
+                          transition:'background 0.15s'
+                        }}
+                        onMouseEnter={e => e.currentTarget.style.background = theme === 'light' ? '#f1f5f9' : 'rgba(255,255,255,0.04)'}
                         onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                       >
-                        <div style={{ width:'34px', height:'34px', borderRadius:'10px', background:`${n.color}20`, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                        <div style={{
+                          width:'34px', height:'34px', borderRadius:'10px',
+                          background: theme === 'light' ? `${n.color}18` : `${n.color}22`,
+                          border: theme === 'light' ? `1px solid ${n.color}35` : 'none',
+                          display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0
+                        }}>
                           {n.icon === 'ticket'    && <Ticket   size={16} style={{ color: n.color }} />}
                           {n.icon === 'espera'    && <Bell     size={16} style={{ color: n.color }} />}
                           {n.icon === 'ventanilla'&& <Monitor  size={16} style={{ color: n.color }} />}
@@ -406,17 +428,24 @@ const Layout = ({ children }) => {
                           {n.icon === 'logout'    && <LogOut   size={16} style={{ color: n.color }} />}
                         </div>
                         <div style={{ flex:1, minWidth:0 }}>
-                          <div style={{ fontSize:'0.82rem', color:'var(--text-main)', fontWeight:600, lineHeight: 1.3 }}>{n.msg}</div>
-                          <div style={{ fontSize:'0.7rem', color:'rgba(255,255,255,0.38)', marginTop:'3px', display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
+                          <div style={{ fontSize:'0.82rem', color:'var(--text-main)', fontWeight: 700, lineHeight: 1.3 }}>{n.msg}</div>
+                          <div style={{ fontSize:'0.7rem', color: theme === 'light' ? '#64748b' : 'rgba(255,255,255,0.45)', marginTop:'3px', display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
                             <span>{n.time}</span>
                             {n.rol && (
                               <span style={{
                                 fontSize: '0.62rem',
-                                padding: '1px 5px',
+                                padding: '1px 6px',
                                 borderRadius: '4px',
-                                background: n.rol === 'OPERADOR' ? 'rgba(52, 211, 153, 0.15)' : 'rgba(251, 191, 36, 0.15)',
-                                color: n.rol === 'OPERADOR' ? '#34d399' : '#fbbf24',
-                                fontWeight: 700
+                                background: n.rol === 'OPERADOR' 
+                                  ? (theme === 'light' ? '#d1fae5' : 'rgba(52, 211, 153, 0.15)')
+                                  : (theme === 'light' ? '#fef3c7' : 'rgba(251, 191, 36, 0.15)'),
+                                color: n.rol === 'OPERADOR' 
+                                  ? (theme === 'light' ? '#065f46' : '#34d399')
+                                  : (theme === 'light' ? '#92400e' : '#fbbf24'),
+                                border: theme === 'light'
+                                  ? (n.rol === 'OPERADOR' ? '1px solid #a7f3d0' : '1px solid #fde68a')
+                                  : 'none',
+                                fontWeight: 800
                               }}>
                                 {n.rol}
                               </span>
@@ -431,7 +460,7 @@ const Layout = ({ children }) => {
             </div>
 
             {/* Divider */}
-            <div style={{ width: '1px', height: '28px', background: 'rgba(255,255,255,0.08)', flexShrink: 0 }} />
+            <div style={{ width: '1px', height: '28px', background: 'var(--border)', flexShrink: 0 }} />
 
             {/* Avatar */}
             <div style={{
@@ -540,13 +569,13 @@ const Layout = ({ children }) => {
       </div>
 
       {/* ── Modal de Aviso al Ingresar Fuera de Horario para Operador y Vigilante ── */}
-      {showModalCerrado && ['OPERADOR', 'VIGILANTE'].includes(user?.rol) && horarioCerrado && (
+      {showModalCerrado && ['OPERADOR', 'VIGILANTE'].includes(user?.rol) && horarioCerrado && createPortal(
         <div style={{
           position: 'fixed',
           inset: 0,
-          zIndex: 10000,
-          background: 'rgba(5, 4, 12, 0.78)',
-          backdropFilter: 'blur(10px)',
+          zIndex: 999999,
+          background: 'rgba(5, 4, 12, 0.85)',
+          backdropFilter: 'blur(12px)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
@@ -637,7 +666,8 @@ const Layout = ({ children }) => {
               Entendido
             </button>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
     </div>

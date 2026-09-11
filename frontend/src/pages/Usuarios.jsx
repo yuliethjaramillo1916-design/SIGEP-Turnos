@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Plus, UserPlus, Edit, Trash2, ShieldCheck, Mail, Info, RefreshCw, UserCheck, UserX, Eye, EyeOff } from 'lucide-react';
 import api from '../services/api';
 
@@ -308,9 +309,9 @@ const Usuarios = () => {
         </table>
       </div>
 
-      {/* Modal para Crear y Editar */}
-      {showModal && (
-        <div className="modal-overlay" style={{ background: 'rgba(15, 23, 42, 0.75)', alignItems: 'flex-start', paddingTop: '2rem', paddingBottom: '2rem' }}>
+      {/* Modal para Crear y Editar renderizado en document.body para cubrir pantalla completa */}
+      {showModal && createPortal(
+        <div className="modal-overlay" style={{ alignItems: 'flex-start', paddingTop: '2rem', paddingBottom: '2rem' }}>
           <div className="modal-content" style={{ maxWidth: '480px', width: '100%', borderRadius: '16px', maxHeight: 'calc(100vh - 4rem)', overflowY: 'auto' }}>
             <div className="modal-header">
               <h2 style={{ fontSize: '1.25rem', fontWeight: 800 }}>{editMode ? 'Editar Usuario' : 'Registrar Nuevo Usuario'}</h2>
@@ -372,7 +373,7 @@ const Usuarios = () => {
                       position: 'absolute', right: '0.75rem', top: '50%',
                       transform: 'translateY(-50%)',
                       background: 'none', border: 'none', cursor: 'pointer',
-                      color: 'rgba(255,255,255,0.4)', padding: 0,
+                      color: 'var(--text-muted)', padding: 0,
                       display: 'flex', alignItems: 'center',
                     }}
                     title={showPwd ? 'Ocultar contraseña' : 'Ver contraseña'}
@@ -398,11 +399,11 @@ const Usuarios = () => {
                       setVentanillaSearch('');
                     }
                   }}
-                  style={{ marginTop: '0.35rem', borderRadius: '8px', height: '40px', colorScheme: 'dark', background: 'rgba(255,255,255,0.05)', color: 'var(--text-main)', border: '1.5px solid rgba(255,255,255,0.08)' }}
+                  style={{ marginTop: '0.35rem', borderRadius: '8px', height: '40px' }}
                 >
-                  <option value="ADMINISTRADOR" style={{ background: '#1e1c35' }}>ADMINISTRADOR (Acceso Total)</option>
-                  <option value="OPERADOR" style={{ background: '#1e1c35' }}>OPERADOR (Consola de Atención)</option>
-                  <option value="VIGILANTE" style={{ background: '#1e1c35' }}>VIGILANTE (Generador de Tickets)</option>
+                  <option value="ADMINISTRADOR">ADMINISTRADOR (Acceso Total)</option>
+                  <option value="OPERADOR">OPERADOR (Consola de Atención)</option>
+                  <option value="VIGILANTE">VIGILANTE (Generador de Tickets)</option>
                 </select>
               </div>
 
@@ -468,10 +469,10 @@ const Usuarios = () => {
                       top: '100%',
                       left: 0,
                       right: 0,
-                      backgroundColor: '#1e1c35',
-                      border: '1px solid rgba(124,58,237,0.25)',
+                      backgroundColor: 'var(--bg-card)',
+                      border: '1px solid var(--border)',
                       borderRadius: '8px',
-                      boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
+                      boxShadow: 'var(--shadow-lg)',
                       zIndex: 50,
                       maxHeight: '200px',
                       overflowY: 'auto',
@@ -488,7 +489,7 @@ const Usuarios = () => {
 
                         if (filtered.length === 0) {
                           return (
-                            <div style={{ padding: '0.75rem 1rem', color: 'var(--text-muted)', fontSize: '0.9rem', textAlign: 'center' }}>
+                            <div style={{ padding: '0.75rem 1rem', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
                               No se encontraron ventanillas
                             </div>
                           );
@@ -496,7 +497,6 @@ const Usuarios = () => {
 
                         return filtered.map(v => {
                           const isSelected = formData.ventanilla === v._id;
-                          const isOccupiedByOther = v.operador && String(v.operador._id || v.operador) !== String(selectedId);
                           const isInactive = v.estado === 'inactiva';
 
                           return (
@@ -510,18 +510,18 @@ const Usuarios = () => {
                               style={{
                                 padding: '0.75rem 1rem',
                                 cursor: 'pointer',
-                                backgroundColor: isSelected ? 'rgba(124,58,237,0.2)' : 'transparent',
-                                color: isSelected ? '#c4b5fd' : 'var(--text-main)',
+                                backgroundColor: isSelected ? 'var(--primary-light)' : 'transparent',
+                                color: isSelected ? 'var(--primary)' : 'var(--text-main)',
                                 display: 'flex',
                                 justifyContent: 'space-between',
                                 alignItems: 'center',
-                                borderBottom: '1px solid rgba(255,255,255,0.05)',
+                                borderBottom: '1px solid var(--border)',
                                 fontSize: '0.9rem',
                                 transition: 'background-color 0.2s',
                                 opacity: isInactive ? 0.6 : 1
                               }}
                               onMouseEnter={(e) => {
-                                if (!isSelected) e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.05)';
+                                if (!isSelected) e.currentTarget.style.backgroundColor = 'var(--bg-subtle)';
                               }}
                               onMouseLeave={(e) => {
                                 if (!isSelected) e.currentTarget.style.backgroundColor = 'transparent';
@@ -538,16 +538,6 @@ const Usuarios = () => {
                                   </span>
                                 )}
                               </div>
-                              <span style={{ 
-                                fontSize: '0.75rem', 
-                                color: isOccupiedByOther ? 'var(--danger)' : 'var(--text-muted)',
-                                fontWeight: isOccupiedByOther ? 600 : 400
-                              }}>
-                                {isOccupiedByOther 
-                                  ? `Ocupada por ${v.operador.nombre || ''} ${v.operador.apellido || ''}`
-                                  : 'Disponible'
-                                }
-                              </span>
                             </div>
                           );
                         });
@@ -557,15 +547,14 @@ const Usuarios = () => {
                 </div>
               )}
 
-              <div className="checkbox-group" style={{ marginBottom: '1.5rem', background: 'rgba(255,255,255,0.04)', padding: '0.75rem', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.08)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <div className="checkbox-group" style={{ marginBottom: '1.5rem', background: 'var(--bg-subtle)', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border)' }}>
                 <input 
                   type="checkbox" 
-                  id="estado_chk"
+                  id="estado_user_chk"
                   checked={formData.estado} 
                   onChange={(e) => setFormData({...formData, estado: e.target.checked})}
-                  style={{ width: 'auto', margin: 0, cursor: 'pointer' }}
                 />
-                <label htmlFor="estado_chk" style={{ marginBottom: 0, fontWeight: 600, cursor: 'pointer' }}>Cuenta Activa (Permitir Ingreso)</label>
+                <label htmlFor="estado_user_chk" style={{ marginBottom: 0, fontWeight: 600, cursor: 'pointer' }}>Usuario Activo (Permitir inicio de sesión)</label>
               </div>
 
               <div style={{ display: 'flex', gap: '1rem' }}>
@@ -578,7 +567,8 @@ const Usuarios = () => {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

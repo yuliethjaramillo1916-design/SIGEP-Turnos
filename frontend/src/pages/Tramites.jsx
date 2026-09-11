@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Plus, Edit, Trash2, Clock, Check, X, FileText, ToggleLeft, ToggleRight, Info } from 'lucide-react';
 import api from '../services/api';
 
@@ -218,9 +219,9 @@ const Tramites = () => {
         </table>
       </div>
 
-      {/* Modal - Create & Edit */}
-      {showModal && (
-        <div className="modal-overlay" style={{ background: 'rgba(15, 23, 42, 0.6)' }}>
+      {/* Modal - Create & Edit renderizado en document.body para cubrir pantalla completa */}
+      {showModal && createPortal(
+        <div className="modal-overlay">
           <div className="modal-content" style={{ maxWidth: '480px', borderRadius: '16px' }}>
             <div className="modal-header">
               <h2 style={{ fontSize: '1.25rem', fontWeight: 800 }}>
@@ -267,7 +268,7 @@ const Tramites = () => {
                   onChange={(e) => setFormData({...formData, tiempoEstimado: parseInt(e.target.value)})}
                   style={{ marginTop: '0.5rem', height: '6px', background: 'rgba(124,58,237,0.25)', borderRadius: '4px', outline: 'none', padding: 0 }}
                 />
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: 'rgba(255,255,255,0.35)', marginTop: '0.25rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
                   <span>2 min</span>
                   <span>15 min</span>
                   <span>30 min</span>
@@ -277,7 +278,7 @@ const Tramites = () => {
               </div>
 
               {editMode && (
-                <div className="checkbox-group" style={{ marginBottom: '1.5rem', background: 'rgba(255,255,255,0.04)', padding: '0.75rem', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.08)' }}>
+                <div className="checkbox-group" style={{ marginBottom: '1.5rem', background: 'var(--bg-subtle)', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border)' }}>
                   <input 
                     type="checkbox" 
                     id="estado_chk"
@@ -298,7 +299,8 @@ const Tramites = () => {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

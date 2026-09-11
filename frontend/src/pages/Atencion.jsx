@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { Play, CheckCircle, SkipForward, Pause, RefreshCw, XCircle, Users, Monitor, AlertCircle, Info, ChevronRight, Bell, ArrowRightLeft, UserCheck, Clock } from 'lucide-react';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
@@ -957,23 +958,23 @@ const Atencion = () => {
 
       </div>
 
-      {/* Modal para Transferir / Reasignar Turno */}
-      {showTransferModal && (
-        <div className="modal-overlay" style={{ background: 'rgba(15, 23, 42, 0.65)', backdropFilter: 'blur(4px)' }}>
-          <div className="modal-content" style={{ maxWidth: '480px', borderRadius: '20px', background: '#1a1830', border: '1px solid rgba(124,58,237,0.3)', padding: '2rem' }}>
-            <div className="modal-header" style={{ marginBottom: '1rem', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '0.85rem' }}>
+      {/* Modal para Transferir / Reasignar Turno renderizado en document.body para pantalla completa */}
+      {showTransferModal && createPortal(
+        <div className="modal-overlay">
+          <div className="modal-content" style={{ maxWidth: '480px', padding: '2rem' }}>
+            <div className="modal-header">
               <h2 style={{ fontSize: '1.25rem', fontWeight: 800 }}>Reasignar Turno</h2>
               <button onClick={() => setShowTransferModal(false)} style={{ color: 'var(--text-muted)', fontSize: '1.5rem', fontWeight: 'bold', background: 'none', border: 'none', cursor: 'pointer' }}>&times;</button>
             </div>
             
-            <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: '0.875rem', marginBottom: '1.5rem' }}>
+            <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem', marginBottom: '1.5rem' }}>
               Reasigna el turno <strong>{currentTurno?.codigoTurno}</strong> a otro operador o trámite. Al operador seleccionado le aparecerá como su próximo turno a llamar.
             </p>
 
             <form onSubmit={transferirTurno}>
               {/* Selector de Ventanilla de Destino */}
               <div className="form-group" style={{ marginBottom: '1.25rem' }}>
-                <label style={{ fontWeight: 600, fontSize: '0.85rem', color: 'rgba(255,255,255,0.7)' }}>Ventanilla de Destino</label>
+                <label style={{ fontWeight: 600, fontSize: '0.85rem' }}>Ventanilla de Destino</label>
                 <select 
                   required
                   value={targetVentanilla} 
@@ -983,7 +984,7 @@ const Atencion = () => {
                     const vObj = ventanillasDisponibles.find(v => formatVentanillaLabel(v) === sel);
                     setTargetOperador(vObj?.operador?._id || vObj?.operador || '');
                   }}
-                  style={{ marginTop: '0.4rem', height: '44px', borderRadius: '10px', width: '100%', background: '#13111c', border: '1px solid rgba(255,255,255,0.15)', color: 'white', padding: '0 0.75rem' }}
+                  style={{ marginTop: '0.4rem', height: '44px', borderRadius: '10px', width: '100%' }}
                 >
                   <option value="">Seleccione la ventanilla de destino...</option>
                   {ventanillasDisponibles
@@ -997,7 +998,6 @@ const Atencion = () => {
                           key={v._id} 
                           value={vLabel}
                           disabled={isInactiva}
-                          style={isInactiva ? { color: '#f87171', background: '#18111e' } : {}}
                         >
                           {vLabel}{opNombre}{isInactiva ? ' — [INACTIVA - No disponible]' : ''}
                         </option>
@@ -1005,18 +1005,18 @@ const Atencion = () => {
                     })
                   }
                 </select>
-                <small style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.75rem', display: 'block', marginTop: '0.3rem' }}>
+                <small style={{ color: 'var(--text-muted)', fontSize: '0.75rem', display: 'block', marginTop: '0.3rem' }}>
                   El turno será transferido y reservado con prioridad para esta ventanilla.
                 </small>
               </div>
 
               {/* Selector de Trámite de Destino */}
               <div className="form-group" style={{ marginBottom: '1.25rem' }}>
-                <label style={{ fontWeight: 600, fontSize: '0.85rem', color: 'rgba(255,255,255,0.7)' }}>Trámite de Destino</label>
+                <label style={{ fontWeight: 600, fontSize: '0.85rem' }}>Trámite de Destino</label>
                 <select 
                   value={targetTramite} 
                   onChange={(e) => setTargetTramite(e.target.value)}
-                  style={{ marginTop: '0.4rem', height: '44px', borderRadius: '10px', width: '100%', background: '#13111c', border: '1px solid rgba(255,255,255,0.15)', color: 'white', padding: '0 0.75rem' }}
+                  style={{ marginTop: '0.4rem', height: '44px', borderRadius: '10px', width: '100%' }}
                 >
                   <option value="">Mantener trámite actual ({currentTurno?.tramite?.nombre})</option>
                   {tramites
@@ -1030,13 +1030,13 @@ const Atencion = () => {
 
               {/* Motivo de reasignación */}
               <div className="form-group" style={{ marginBottom: '1.75rem' }}>
-                <label style={{ fontWeight: 600, fontSize: '0.85rem', color: 'rgba(255,255,255,0.7)' }}>Motivo / Observación (opcional)</label>
+                <label style={{ fontWeight: 600, fontSize: '0.85rem' }}>Motivo / Observación (opcional)</label>
                 <input 
                   type="text"
                   placeholder="Ej: Requiere pago en caja, validación de firma..."
                   value={targetMotivo}
                   onChange={(e) => setTargetMotivo(e.target.value)}
-                  style={{ marginTop: '0.4rem', height: '44px', borderRadius: '10px', width: '100%', background: '#13111c', border: '1px solid rgba(255,255,255,0.15)', color: 'white', padding: '0 0.75rem' }}
+                  style={{ marginTop: '0.4rem', height: '44px', borderRadius: '10px', width: '100%' }}
                 />
               </div>
 
@@ -1050,7 +1050,8 @@ const Atencion = () => {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       <style>{`

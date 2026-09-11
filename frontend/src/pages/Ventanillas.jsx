@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Monitor, Plus, Edit, Trash2, CheckCircle, XCircle, Hash, Search } from 'lucide-react';
 import api from '../services/api';
 
@@ -313,21 +314,21 @@ const Ventanillas = () => {
         ))}
       </div>
 
-      {/* Modal Ventanilla */}
-      {showModal && (
-        <div className="modal-overlay" style={{ background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'fixed', inset: 0, zIndex: 1000, backdropFilter: 'blur(8px)' }}>
-          <div style={{ maxWidth: '440px', borderRadius: '20px', background: '#1a1830', padding: '2rem', width: '100%', boxShadow: '0 40px 80px rgba(0,0,0,0.6)', border: '1px solid rgba(124,58,237,0.2)' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.75rem', paddingBottom: '1rem', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
-              <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-main)' }}>
+      {/* Modal Ventanilla renderizado en document.body para cubrir pantalla completa sin mostrar header */}
+      {showModal && createPortal(
+        <div className="modal-overlay">
+          <div className="modal-content" style={{ maxWidth: '440px', padding: '2rem' }}>
+            <div className="modal-header">
+              <h2 style={{ fontSize: '1.25rem', fontWeight: 800 }}>
                 {editMode ? 'Editar Ventanilla' : 'Nueva Ventanilla'}
               </h2>
-              <button onClick={() => setShowModal(false)} style={{ color: 'rgba(255,255,255,0.4)', fontSize: '1.5rem', fontWeight: 'bold', background: 'none', border: 'none', cursor: 'pointer', lineHeight: 1 }}>&times;</button>
+              <button onClick={() => setShowModal(false)} style={{ color: 'var(--text-muted)', fontSize: '1.5rem', fontWeight: 'bold', background: 'none', border: 'none', cursor: 'pointer', lineHeight: 1 }}>&times;</button>
             </div>
             
             <form onSubmit={handleSubmit}>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '1rem', marginBottom: '1.25rem' }}>
                 <div className="form-group">
-                  <label style={{ fontWeight: 600, fontSize: '0.85rem', color: 'rgba(255,255,255,0.6)' }}>
+                  <label style={{ fontWeight: 600, fontSize: '0.85rem' }}>
                     <Hash size={14} style={{ display: 'inline', marginRight: '4px', verticalAlign: 'middle' }} />
                     Número
                   </label>
@@ -341,7 +342,7 @@ const Ventanillas = () => {
                   />
                 </div>
                 <div className="form-group">
-                  <label style={{ fontWeight: 600, fontSize: '0.85rem', color: 'rgba(255,255,255,0.6)' }}>Nombre / Descripción</label>
+                  <label style={{ fontWeight: 600, fontSize: '0.85rem' }}>Nombre / Descripción</label>
                   <input
                     type="text"
                     placeholder="Ej: Caja Principal, Atención Rápida"
@@ -353,14 +354,14 @@ const Ventanillas = () => {
               </div>
 
               <div className="form-group" style={{ marginBottom: '1.5rem' }}>
-                <label style={{ fontWeight: 600, fontSize: '0.85rem', color: 'rgba(255,255,255,0.6)' }}>Estado</label>
+                <label style={{ fontWeight: 600, fontSize: '0.85rem' }}>Estado</label>
                 <select
                   value={formData.estado}
                   onChange={(e) => setFormData({ ...formData, estado: e.target.value })}
-                  style={{ marginTop: '0.375rem', borderRadius: '8px', height: '40px', colorScheme: 'dark' }}
+                  style={{ marginTop: '0.375rem', borderRadius: '8px', height: '40px' }}
                 >
-                  <option value="activa" style={{ background: '#1e1c35' }}>Activa — Disponible para uso</option>
-                  <option value="inactiva" style={{ background: '#1e1c35' }}>Inactiva — No disponible</option>
+                  <option value="activa">Activa — Disponible para uso</option>
+                  <option value="inactiva">Inactiva — No disponible</option>
                 </select>
               </div>
 
@@ -374,7 +375,8 @@ const Ventanillas = () => {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

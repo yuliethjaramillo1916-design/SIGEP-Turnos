@@ -467,12 +467,16 @@ input[type="range"] {
 
 /* ── Modals ───────────────────────────────────────── */
 .modal-overlay {
-  position: fixed; inset: 0;
-  background: rgba(0, 0, 0, 0.7);
-  display: flex; justify-content: center; align-items: center;
-  z-index: 1000; padding: 1rem;
-  backdrop-filter: blur(10px);
-  animation: fadeIn 0.15s ease;
+  position: fixed !important;
+  inset: 0 !important;
+  background: rgba(0, 0, 0, 0.75) !important;
+  display: flex !important;
+  justify-content: center !important;
+  align-items: center !important;
+  z-index: 999999 !important;
+  padding: 1rem !important;
+  backdrop-filter: blur(10px) !important;
+  animation: fadeIn 0.15s ease !important;
 }
 
 .modal-content {
@@ -705,19 +709,87 @@ h3 { font-size: 1rem; font-weight: 700; color: var(--text-main); }
 
 /* Modales */
 [data-theme="light"] .modal-overlay {
-  background: rgba(15, 23, 42, 0.6);
+  background: rgba(15, 23, 42, 0.70) !important;
+  backdrop-filter: blur(8px) !important;
 }
 
 [data-theme="light"] .modal-content {
   background: #ffffff !important;
   border: 1px solid #e2e8f0 !important;
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.2) !important;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25) !important;
   color: #09090b !important;
 }
 
 [data-theme="light"] .modal-header,
 [data-theme="light"] .modal-footer {
   border-color: #e2e8f0;
+}
+
+/* ── Panel y Botón de Notificaciones ──────────────── */
+.notif-dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 340px;
+  max-width: 90vw;
+  z-index: 9999;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+  animation: fadeIn 0.15s ease;
+}
+
+[data-theme="light"] .notif-dropdown {
+  background: #ffffff !important;
+  border: 1px solid #e2e8f0 !important;
+  box-shadow: 0 20px 45px rgba(0, 0, 0, 0.14), 0 4px 12px rgba(0, 0, 0, 0.05) !important;
+}
+
+.notif-bell-btn {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  position: relative;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.notif-bell-btn:hover {
+  background: rgba(124, 58, 237, 0.15);
+  color: #c4b5fd;
+  border-color: rgba(124, 58, 237, 0.35);
+}
+
+.notif-bell-btn.active {
+  background: rgba(124, 58, 237, 0.22);
+  border-color: rgba(124, 58, 237, 0.5);
+  color: #c4b5fd;
+}
+
+[data-theme="light"] .notif-bell-btn {
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  color: #334155;
+}
+
+[data-theme="light"] .notif-bell-btn:hover {
+  background: #ede9fe;
+  color: #7c3aed;
+  border-color: #c4b5fd;
+}
+
+[data-theme="light"] .notif-bell-btn.active {
+  background: #ede9fe;
+  border-color: #7c3aed;
+  color: #7c3aed;
 }
 
 /* Scrollbars */
